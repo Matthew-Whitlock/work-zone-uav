@@ -64,7 +64,7 @@ params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
 params.filterByArea = True
 params.minArea = 300
-params.maxArea = 10000
+params.maxArea = 50000
 params.filterByCircularity = False
 params.filterByConvexity = False
 #params.filterByInertia = False
@@ -99,19 +99,35 @@ cv2.createTrackbar("v upper", windowName2, v_upper, 255, nothing);
 # move by at least 1 pixel pos. difference
 term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1 )
 
-# kalman filter lists
-kalmans = [] # Active Kalman Filters
-crop_hists = [] # Hue
-
-# Currently detected 'cars' from tracking
-# Store as x, y, width, height
-obj_locations = []
-
-# Details used for distinguishing cars from noise.
-# Initial detected location, stored as (x,y) for center of object.
-start_locations = []
-obj_ages = []
-
+class TrackedObj:
+	def __init__(self, start_location):
+		self.speed = 0
+		self.direction = 0
+		self.age = 0
+		self.frames_without_detection = 0;
+		self.likely_car = False;
+		#Stored as x, y, width, height
+		self.location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
+		
+	def update_spatial_history(self):
+		self.age += 1;
+		
+		cntr_x = self.location[0] + self.location[2]/2
+		cntr_y = self.location[1] + self.location[3]/2
+		prediction = self.kalman.predict()
+		pred_x = prediction[0]
+		pred_y = prediction[1]
+		
+		cur_speed = math.sqrt( (cntr_x-pred_x)**2 + (cntr_y-pred_y)**2 );
+		self.speed = 0.5*cur_speed + 0.5*self.speed
+		
+		cur_line = (pred_x - cntr_x, pred_y - cntr_y)
+		#atan2 gets angle in radians from -pi to pi
+		cur_direction = math.atan2(cur_line[1], cur_line[0]);
+		self.direction = 0.5*cur_direction + 0.5*self.direction;
+		
+# List of current tracked objects
+tracked_objs = []
 
 # We'll grab a frame before we begin processing, just to pull
 # info about frame size. Skipping one frame should be NBD.
@@ -141,10 +157,12 @@ while (True):
 	
 	# Applying background subtraction
 	mask = subtractor.apply(frame)
-	cv2.imshow(windowNameBGS,mask);
 	
 	# Detect blobs.
 	keypoints = detector.detect(mask)
+	
+	#Turn the mask to a color version for drawing rectangles later.
+	mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR);
 	
 	
 	
@@ -156,25 +174,29 @@ while (True):
 	new_detections = []
 	
 	for point in keypoints:
-		centerpoint = point.pt			
+		centerpoint = point.pt
 		
-		# See if this detection is within a currently-tracked vehicle.
-		new = True
-		for track_window in obj_locations:
-			x,y,w,h = track_window;
-			if (centerpoint[0] >= x) and (centerpoint[0] <= (x+w)) and (centerpoint[1] >= y) and (centerpoint[1] <= (y+h)):
-				new = False
-				break;
-		# If it's not actually new, continue to check the next points.
-		if not new: 
-			continue
-		
-		diameter = point.size;
+		#Increase diameter b/c blobs always seem smaller than actual object.
+		diameter = point.size*1.5;
 		radius = diameter/2;
 		pt_1x = centerpoint[0] - radius
 		pt_2x = centerpoint[0] + radius
 		pt_1y = centerpoint[1] - radius
 		pt_2y = centerpoint[1] + radius
+		
+		#Draw all detected blobs on BGS window
+		cv2.rectangle(mask,(int(pt_1x), int(pt_1y)), (int(pt_2x), int(pt_2y)), (0,0,255), 3)		
+		
+		# See if this detection is within a currently-tracked vehicle.
+		new = True
+		for obj in tracked_objs:
+			x,y,w,h = obj.location
+			if (pt_1x < x+w) and (pt_1y < y+h) and (pt_2x > x) and (pt_2y > y):
+				new = False
+				break;
+		# If it's not actually new, continue to check the next points.
+		if not new: 
+			continue
 		
 		# See if this detection overlaps another new detection
 		# If so, just choose the largest detection.
@@ -195,54 +217,43 @@ while (True):
 				break;
 		if new:
 			new_detections.append([pt_1x, pt_1y, diameter, diameter]);
-		
-		
+	
+	#Display BG/blob detection results
+	cv2.imshow(windowNameBGS,mask);
 		
 	############################################################
 	# Now that we've (potentially) found new points to track, we
 	# need to do initial setup for tracking these new points.
 	for to_track in new_detections:
-		point1x = max(0, int(to_track[0]))
-		point1y = max(0, int(to_track[1]))
-		point2x = min(frame_width, int(to_track[0] + to_track[2]))
-		point2y = min(frame_height, int(to_track[1] + to_track[3]))
+		obj = TrackedObj(to_track)
 		
-		start_locations.append((to_track[0]+to_track[2]/2, to_track[1]+to_track[3]/2))
-		obj_ages.append(0);
-		
-		#Draw the new detection on the frame in red
-		cv2.rectangle(frame,(point1x, point1y),(point2x, point2y),(0,0,255),3)
-			
 		# init kalman filter object
-		kalman = cv2.KalmanFilter(4,2)
-		kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
-
-		kalman.transitionMatrix = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]],np.float32)
-
-		kalman.processNoiseCov = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32) * 0.03
-		kalmans.append(kalman)
+		obj.kalman = cv2.KalmanFilter(4,2);
+		obj.kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
+		obj.kalman.transitionMatrix = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]],np.float32)
+		obj.kalman.processNoiseCov = np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32) * 0.03
 		
 		# convert region to HSV
-		crop = frame[point1y:point2y,point1x:point2x].copy()
-		hsv_crop =  cv2.cvtColor(crop, cv2.COLOR_BGR2HSV);
-	
+		pt_1x = int(max(0, obj.location[0]))
+		pt_1y = int(max(0, obj.location[1]))
+		pt_2x = int(min(frame_width, obj.location[0] + obj.location[2]))
+		pt_2y = int(min(frame_height, obj.location[1] + obj.location[3]))
+		crop = frame[pt_1y:pt_2y,pt_1x:pt_2x]
+		hsv_crop =  cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+		
 		# select all Hue (0-> 180) and Sat. values but eliminate values with very low
 		# saturation or value (due to lack of useful colour information)
 		mask2 = cv2.inRange(hsv_crop, np.array((0., float(s_lower),float(v_lower))), np.array((180.,float(s_upper),float(v_upper))));
-		# mask = cv2.inRange(hsv_crop, np.array((0., 60.,32.)), np.array((180.,255.,255.)));
-
+		
 		# construct a histogram of hue and saturation values and normalize it
-		crop_hist = cv2.calcHist([hsv_crop],[0, 1],mask2,[180, 255],[0,180, 0, 255]);
-		cv2.normalize(crop_hist,crop_hist,0,255,cv2.NORM_MINMAX);
-		crop_hists.append(crop_hist)
-
-		# set intial position of object
-		obj_locations.append((int(to_track[0]), int(to_track[1]), int(to_track[2]), int(to_track[3])))
-
-		cv2.imshow(windowNameSelection,crop);
-	
-	
-	
+		obj.crop_hist = cv2.calcHist([hsv_crop],[0, 1],mask2,[180, 255],[0,180, 0, 255]);
+		cv2.normalize(obj.crop_hist,obj.crop_hist,0,255,cv2.NORM_MINMAX);
+		
+		tracked_objs.append(obj)
+		
+		#Draw the new detection on the frame in red
+		cv2.rectangle(frame,(pt_1x, pt_1y),(pt_2x, pt_2y),(0,0,255),3)
+		cv2.imshow(windowNameSelection,frame[pt_1y:pt_2y, pt_1x:pt_2x]);
 	
 	##########################################
 	# Now we start the actual tracking portion
@@ -250,20 +261,20 @@ while (True):
 	# convert incoming image to HSV
 	img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV);
 	
-	for vehicle in range(len(obj_locations)):
+	for obj in tracked_objs:
 		# back projection of histogram based on Hue and Saturation only
-		img_bproject = cv2.calcBackProject([img_hsv],[0,1],crop_hists[vehicle],[0,180,0,255],1);
+		img_bproject = cv2.calcBackProject([img_hsv],[0,1],obj.crop_hist,[0,180,0,255],1);
 		cv2.imshow(windowName2,img_bproject);
 
 		# apply camshift to predict new location (observation)
-		ret, obj_locations[vehicle] = cv2.CamShift(img_bproject, obj_locations[vehicle], term_crit);
+		ret, obj.location = cv2.CamShift(img_bproject, obj.location, term_crit);
 
 		# draw observation on image - in BLUE
-		x,y,w,h = obj_locations[vehicle];
+		x,y,w,h = obj.location;
 		frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (255,0,0),2);
 
 		# use observation to correct kalman filter
-		kalmans[vehicle].correct( np.array([x+w/2, y+h/2], np.float32));
+		obj.kalman.correct( np.array([x+w/2, y+h/2], np.float32));
 	
 	
 	
@@ -278,43 +289,35 @@ while (True):
 	#	Object not travelling in the same direction as main traffic body.
 	
 	# Currently very simplistic, doesn't do all of the above.
-	for i in range(len(obj_locations) - 1, -1, -1):
-		obj_ages[i] = obj_ages[i] + 1
+	for i in range(len(tracked_objs) - 1, -1, -1):
 		# Delete nondetections first
-		x,y,w,h = obj_locations[i];
+		obj = tracked_objs[i]
+		
+		x,y,w,h = obj.location;
 		if( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
-			del crop_hists[i]
-			del obj_locations[i]
-			del kalmans[i]
-			del start_locations[i]
-			del obj_ages[i]
+			del tracked_objs[i];
 			continue;
 		
 		# Delete things too big
 		# Need to refactor to account for distance etc.
 		if (w >= frame_width/4) or (h >= frame_height/4):
-			del crop_hists[i]
-			del obj_locations[i]
-			del kalmans[i]
-			del start_locations[i]
-			del obj_ages[i]
+			del tracked_objs[i];
 			continue;
+
+
 		
-		#Some tests require that the object have been alive for a bit to be reasonable.
-		if obj_ages[i] < 10:
+		#Update movement info
+		obj.update_spatial_history()
+		
+		#Tests on movement require that the object have been alive for a bit to be reasonable.
+		if obj.age < 8:
 			continue
 			
 		# Delete non-moving
 		# Currently considers 2 pixels per frame to be moving.
 		# Should be updated to account for distance from drone and fps
-		cntr_x = x+(w/2)
-		cntr_y = y+(h/2)
-		if (math.sqrt((start_locations[i][0] - cntr_x)**2 + (start_locations[i][1] - cntr_y)**2)/obj_ages[i]) < 2.5 :
-			del crop_hists[i]
-			del obj_locations[i]
-			del kalmans[i]
-			del start_locations[i]
-			del obj_ages[i]
+		if obj.speed < 3 :
+			del tracked_objs[i]
 			continue;
 		
 		#Draw surviving objects in green.
