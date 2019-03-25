@@ -15,6 +15,7 @@ import numpy as np
 #####################################################################
 
 fullscreen = False; # run in fullscreen mode
+use_mog = True; #Use MOG instead of MOG2
 input_fps = 30
 
 # parse command line arguments for camera ID or video file
@@ -46,6 +47,7 @@ cap = cv2.VideoCapture();
 windowName = "Vehicle Tracking"; # window name
 windowName2 = "Hue histogram back projection"; # window name
 windowNameSelection = "initial selected region";
+windowNameBGS = "Background Subtraction";
 
 
 measurement = np.array((2,1), np.float32)
@@ -55,7 +57,8 @@ print("New objects: RED");
 print("Tracked Objects: BLUE");
 print("Likely cars: GREEN\n");
 
-subtractor = cv2.createBackgroundSubtractorMOG2(history = 2*input_fps, varThreshold = 15, detectShadows = False)
+if use_mog: subtractor = cv2.bgsegm.createBackgroundSubtractorMOG();
+else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 5, varThreshold = 25, detectShadows = False)
 #Setting blob detection parameters
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
@@ -80,6 +83,7 @@ if not (((args.video_file) and (cap.open(str(args.video_file))))
 cv2.namedWindow(windowName, cv2.WINDOW_NORMAL);
 cv2.namedWindow(windowName2, cv2.WINDOW_NORMAL);
 cv2.namedWindow(windowNameSelection, cv2.WINDOW_NORMAL);
+cv2.namedWindow(windowNameBGS, cv2.WINDOW_NORMAL);
 
 # set sliders for HSV selection thresholds
 s_lower = 60;
@@ -137,6 +141,7 @@ while (True):
 	
 	# Applying background subtraction
 	mask = subtractor.apply(frame)
+	cv2.imshow(windowNameBGS,mask);
 	
 	# Detect blobs.
 	keypoints = detector.detect(mask)
