@@ -63,7 +63,7 @@ else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 5, varThreshold 
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
 params.filterByArea = True
-params.minArea = 300
+params.minArea = 50
 params.maxArea = 50000
 params.filterByCircularity = False
 params.filterByConvexity = False
@@ -99,6 +99,24 @@ cv2.createTrackbar("v upper", windowName2, v_upper, 255, nothing);
 # move by at least 1 pixel pos. difference
 term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1 )
 
+#Take two rectangles defined by x,y,w,h and get the percentage of rect1 which overlaps rect2
+def getOverlap(rect1, rect2):
+	r1_x, r1_y, r1_w, r1_h = rect1
+	r2_x, r2_y, r2_w, r2_h = rect2
+	
+	if (r1_x < r2_x and r1_x + r1_w < r2_x) or (r2_x < r1_x and r2_x + r2_w < r1_x):
+		#No X overlap
+		return 0;
+	if (r1_y < r2_y and r1_y + r1_h < r2_y) or (r2_y < r1_y and r2_y + r2_h < r1_y):
+		#No Y overlap
+		return 0;
+	
+	overlap_w = min(r1_x+r1_w, r2_x+r2_w) - max(r1_x, r2_x)
+	overlap_h = min(r1_y+r1_h, r2_y+r2_h) - max(r1_y, r2_y)
+		
+	#Return area_of_overlap/area_of_rect1
+	return (overlap_h*overlap_w) / (r1_w*r1_h);
+
 class TrackedObj:
 	def __init__(self, start_location):
 		self.speed = 0
@@ -108,8 +126,10 @@ class TrackedObj:
 		self.likely_car = False;
 		#Stored as x, y, width, height
 		self.location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
+		self.foreground_overlaps = []
+		self.frames_without_blob_overlap = 0;
 		
-	def update_spatial_history(self):
+	def updateSpatialHistory(self):
 		self.age += 1;
 		
 		cntr_x = self.location[0] + self.location[2]/2
@@ -125,7 +145,7 @@ class TrackedObj:
 		#atan2 gets angle in radians from -pi to pi
 		cur_direction = math.atan2(cur_line[1], cur_line[0]);
 		self.direction = 0.5*cur_direction + 0.5*self.direction;
-		
+
 # List of current tracked objects
 tracked_objs = []
 
@@ -192,8 +212,8 @@ while (True):
 		for obj in tracked_objs:
 			x,y,w,h = obj.location
 			if (pt_1x < x+w) and (pt_1y < y+h) and (pt_2x > x) and (pt_2y > y):
+				obj.foreground_overlaps.append((pt_1x, pt_1y, diameter, diameter));
 				new = False
-				break;
 		# If it's not actually new, continue to check the next points.
 		if not new: 
 			continue
@@ -262,12 +282,75 @@ while (True):
 	img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV);
 	
 	for obj in tracked_objs:
+		# First, lets take feedback from previous location, blob detection, and kalman filtering to 
+		# guess the next location
+		
+		#Start with where we found it last time
+		expected_loc = list(obj.location);
+		
+		#Now move it, so the center is the avg of previous and center of our prediction for this time.
+		#Only do this if the object has been alive for a couple of frames.
+		#This is proving to give a lot of error! Does anyone have a good explanation?
+		##if obj.age > 100000:
+		##	prediction = obj.kalman.predict()
+		##	expected_loc[0] = (prediction[0] + expected_loc[0]+expected_loc[2]/2)/2 - expected_loc[2]/2;
+		##	expected_loc[1] = (prediction[1] + expected_loc[1]+expected_loc[3]/2)/2 - expected_loc[3]/2;
+		##	print("After Kalman", expected_loc)
+		
+		
+		#Now use the overlapping blobs, and find the nearest blob.
+		#Lots of room for improvement in how we use blobs here.
+		overlap_vals = []
+		for blob_num in range(len(obj.foreground_overlaps)):
+			overlap_vals.append((getOverlap(expected_loc, obj.foreground_overlaps[blob_num]), blob_num, getOverlap(obj.foreground_overlaps[blob_num], expected_loc)));
+		
+		overlap_vals = sorted(overlap_vals, reverse=True, key = lambda x:x[0]);
+		
+		#No lets take the top two overlaps, and use the closest size-match to adjust the center
+		#Ignore overlaps if they're small overlap amounts.
+		if len(overlap_vals) > 1 and overlap_vals[1][0] > 0.35:
+			# We have two reasonable options, pick one and use it.
+			obj1 = obj.foreground_overlaps[overlap_vals[0][1]]
+			obj2 = obj.foreground_overlaps[overlap_vals[1][1]]
+			
+			size_diff_1 = abs((expected_loc[2]-obj1[2])/expected_loc[2]) + abs((expected_loc[3]-obj1[3])/expected_loc[3])
+			size_diff_2 = abs((expected_loc[2]-obj2[2])/expected_loc[2]) + abs((expected_loc[3]-obj2[3])/expected_loc[3])
+			
+			#Take the chosen blobject, center directly on blobject, avg the w/h vals.
+			if(size_diff_1 < size_diff_2):
+				expected_loc[2] = 0.15*obj1[2] + 0.85*expected_loc[2];
+				expected_loc[3] = 0.15*obj1[3] + 0.85*expected_loc[3];
+				expected_loc[0] = (obj1[0]+obj1[2]/2)-expected_loc[2]/2
+				expected_loc[1] = (obj1[1]+obj1[3]/2)-expected_loc[3]/2
+			else:
+				expected_loc[2] = 0.15*obj2[2] + 0.85*expected_loc[2];
+				expected_loc[3] = 0.15*obj2[3] + 0.85*expected_loc[3];
+				expected_loc[0] = (obj2[0]+obj2[2]/2)-expected_loc[2]/2
+				expected_loc[1] = (obj2[1]+obj2[3]/2)-expected_loc[3]/2
+				
+			obj.frames_without_blob_overlap = 0
+				
+		elif len(overlap_vals) >0 and overlap_vals[0][0] > 0.35:
+			obj1 = obj.foreground_overlaps[overlap_vals[0][1]]
+			expected_loc[2] = 0.5*obj1[2] + 0.5*expected_loc[2];
+			expected_loc[3] = 0.5*obj1[3] + 0.5*expected_loc[3];
+			expected_loc[0] = (obj1[0]+obj1[2]/2)-expected_loc[2]/2
+			expected_loc[1] = (obj1[1]+obj1[3]/2)-expected_loc[3]/2
+			obj.frames_without_blob_overlap = 0
+		elif len(overlap_vals)>0 and (sorted(overlap_vals, reverse=True, key = lambda x:x[2]))[0][2] > 0.35: 
+			obj.frames_without_blob_overlap = 0
+		else: obj.frames_without_blob_overlap += 1
+		
+		obj.foreground_overlaps = []
+		
+		expected_loc = (int(expected_loc[0]), int(expected_loc[1]), int(expected_loc[2]), int(expected_loc[3]))
+	
 		# back projection of histogram based on Hue and Saturation only
 		img_bproject = cv2.calcBackProject([img_hsv],[0,1],obj.crop_hist,[0,180,0,255],1);
 		cv2.imshow(windowName2,img_bproject);
 
 		# apply camshift to predict new location (observation)
-		ret, obj.location = cv2.CamShift(img_bproject, obj.location, term_crit);
+		ret, obj.location = cv2.CamShift(img_bproject, expected_loc, term_crit);
 
 		# draw observation on image - in BLUE
 		x,y,w,h = obj.location;
@@ -304,10 +387,14 @@ while (True):
 			del tracked_objs[i];
 			continue;
 
-
+		#Delete things tracking something with no movement
+		if(obj.frames_without_blob_overlap > 0):
+			del tracked_objs[i]
+			continue
+		
 		
 		#Update movement info
-		obj.update_spatial_history()
+		obj.updateSpatialHistory()
 		
 		#Tests on movement require that the object have been alive for a bit to be reasonable.
 		if obj.age < 8:
