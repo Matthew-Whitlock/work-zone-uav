@@ -63,7 +63,7 @@ else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 5, varThreshold 
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
 params.filterByArea = True
-params.minArea = 50
+params.minArea = 300
 params.maxArea = 50000
 params.filterByCircularity = False
 params.filterByConvexity = False
@@ -100,22 +100,29 @@ cv2.createTrackbar("v upper", windowName2, v_upper, 255, nothing);
 term_crit = ( cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1 )
 
 #Take two rectangles defined by x,y,w,h and get the percentage of rect1 which overlaps rect2
-def getOverlap(rect1, rect2):
+def getOverlaps(rect1, rect2):
 	r1_x, r1_y, r1_w, r1_h = rect1
 	r2_x, r2_y, r2_w, r2_h = rect2
-	
+	return_list = [0, 0]
 	if (r1_x < r2_x and r1_x + r1_w < r2_x) or (r2_x < r1_x and r2_x + r2_w < r1_x):
 		#No X overlap
-		return 0;
+		return return_list;
 	if (r1_y < r2_y and r1_y + r1_h < r2_y) or (r2_y < r1_y and r2_y + r2_h < r1_y):
 		#No Y overlap
-		return 0;
+		return return_list;
 	
 	overlap_w = min(r1_x+r1_w, r2_x+r2_w) - max(r1_x, r2_x)
 	overlap_h = min(r1_y+r1_h, r2_y+r2_h) - max(r1_y, r2_y)
 		
-	#Return area_of_overlap/area_of_rect1
-	return (overlap_h*overlap_w) / (r1_w*r1_h);
+	#Return (area_of_overlap/area_of_rect1, area_of_overlap/area_of_rect2)
+	
+	return_list = [(overlap_h*overlap_w) / (r1_w*r1_h), (overlap_h*overlap_w) / (r2_w*r2_h)]
+	#print(return_list)
+	return  return_list
+
+def getOverlap(rect1, rect2):
+	return getOverlaps(rect1, rect2)[0]
+
 
 class TrackedObj:
 	def __init__(self, start_location):
@@ -318,13 +325,13 @@ while (True):
 			
 			#Take the chosen blobject, center directly on blobject, avg the w/h vals.
 			if(size_diff_1 < size_diff_2):
-				expected_loc[2] = 0.15*obj1[2] + 0.85*expected_loc[2];
-				expected_loc[3] = 0.15*obj1[3] + 0.85*expected_loc[3];
+				expected_loc[2] = 0.5*obj1[2] + 0.5*expected_loc[2];
+				expected_loc[3] = 0.5*obj1[3] + 0.5*expected_loc[3];
 				expected_loc[0] = (obj1[0]+obj1[2]/2)-expected_loc[2]/2
 				expected_loc[1] = (obj1[1]+obj1[3]/2)-expected_loc[3]/2
 			else:
-				expected_loc[2] = 0.15*obj2[2] + 0.85*expected_loc[2];
-				expected_loc[3] = 0.15*obj2[3] + 0.85*expected_loc[3];
+				expected_loc[2] = 0.5*obj2[2] + 0.5*expected_loc[2];
+				expected_loc[3] = 0.5*obj2[3] + 0.5*expected_loc[3];
 				expected_loc[0] = (obj2[0]+obj2[2]/2)-expected_loc[2]/2
 				expected_loc[1] = (obj2[1]+obj2[3]/2)-expected_loc[3]/2
 				
@@ -378,20 +385,35 @@ while (True):
 		
 		x,y,w,h = obj.location;
 		if( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
+			print("Killed for nondetection")
 			del tracked_objs[i];
 			continue;
 		
 		# Delete things too big
 		# Need to refactor to account for distance etc.
 		if (w >= frame_width/4) or (h >= frame_height/4):
+			print("Killed for size")
 			del tracked_objs[i];
 			continue;
 
 		#Delete things tracking something with no movement
-		if(obj.frames_without_blob_overlap > 0):
+		if(obj.frames_without_blob_overlap > 10):
+			print("Killed for no blobs")
 			del tracked_objs[i]
 			continue
 		
+		#Delete double tracking
+		is_duplicate = False;
+		for j in range(i-1, -1, -1):
+			obj2 = tracked_objs[j]
+			overlaps = getOverlaps(obj.location, obj2.location)
+			if overlaps[0] > 0.35 and overlaps[1] > 0.35 and obj.age <= obj2.age:
+				is_duplicate = True;
+				break;
+		if is_duplicate:
+			print("Killed duplicate")
+			del tracked_objs[i]
+			continue
 		
 		#Update movement info
 		obj.updateSpatialHistory()
@@ -403,7 +425,8 @@ while (True):
 		# Delete non-moving
 		# Currently considers 2 pixels per frame to be moving.
 		# Should be updated to account for distance from drone and fps
-		if obj.speed < 3 :
+		if obj.speed < 2.5 :
+			print("Killed for speed")
 			del tracked_objs[i]
 			continue;
 		
