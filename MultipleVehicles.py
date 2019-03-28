@@ -58,7 +58,7 @@ print("Tracked Objects: BLUE");
 print("Likely cars: GREEN\n");
 
 if use_mog: subtractor = cv2.bgsegm.createBackgroundSubtractorMOG();
-else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 5, varThreshold = 25, detectShadows = False)
+else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 20, varThreshold = 10, detectShadows = False)
 #Setting blob detection parameters
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
@@ -135,23 +135,32 @@ class TrackedObj:
 		self.location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
 		self.foreground_overlaps = []
 		self.frames_without_blob_overlap = 0;
+		self.last_location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
 		
 	def updateSpatialHistory(self):
 		self.age += 1;
 		
+		if self.age < 3:
+			return;
+		
+		last_cntr_x = self.last_location[0] + self.last_location[2]/2
+		last_cntr_y = self.last_location[1] + self.last_location[3]/2
+		
 		cntr_x = self.location[0] + self.location[2]/2
 		cntr_y = self.location[1] + self.location[3]/2
-		prediction = self.kalman.predict()
-		pred_x = prediction[0]
-		pred_y = prediction[1]
+		#prediction = self.kalman.predict()
+		#pred_x = prediction[0]
+		#pred_y = prediction[1]
 		
-		cur_speed = math.sqrt( (cntr_x-pred_x)**2 + (cntr_y-pred_y)**2 );
+		cur_speed = math.sqrt( (cntr_x-last_cntr_x)**2 + (cntr_y-last_cntr_y)**2 );
 		self.speed = 0.5*cur_speed + 0.5*self.speed
 		
-		cur_line = (pred_x - cntr_x, pred_y - cntr_y)
+		cur_line = (cntr_x - last_cntr_x, cntr_y - last_cntr_y)
 		#atan2 gets angle in radians from -pi to pi
 		cur_direction = math.atan2(cur_line[1], cur_line[0]);
-		self.direction = 0.5*cur_direction + 0.5*self.direction;
+		self.direction = 0.25*cur_direction + 0.75*self.direction;
+		
+		self.last_location = self.location
 
 # List of current tracked objects
 tracked_objs = []
@@ -204,7 +213,7 @@ while (True):
 		centerpoint = point.pt
 		
 		#Increase diameter b/c blobs always seem smaller than actual object.
-		diameter = point.size*1.5;
+		diameter = point.size*1.3;
 		radius = diameter/2;
 		pt_1x = centerpoint[0] - radius
 		pt_2x = centerpoint[0] + radius
@@ -212,7 +221,7 @@ while (True):
 		pt_2y = centerpoint[1] + radius
 		
 		#Draw all detected blobs on BGS window
-		cv2.rectangle(mask,(int(pt_1x), int(pt_1y)), (int(pt_2x), int(pt_2y)), (0,0,255), 3)		
+		cv2.rectangle(mask, (int(pt_1x), int(pt_1y)), (int(pt_2x), int(pt_2y)), (0,0,255), 3)
 		
 		# See if this detection is within a currently-tracked vehicle.
 		new = True
@@ -275,6 +284,7 @@ while (True):
 		# construct a histogram of hue and saturation values and normalize it
 		obj.crop_hist = cv2.calcHist([hsv_crop],[0, 1],mask2,[180, 255],[0,180, 0, 255]);
 		cv2.normalize(obj.crop_hist,obj.crop_hist,0,255,cv2.NORM_MINMAX);
+		obj.crop_hist = obj.crop_hist.reshape(-1)
 		
 		tracked_objs.append(obj)
 		
@@ -298,11 +308,11 @@ while (True):
 		#Now move it, so the center is the avg of previous and center of our prediction for this time.
 		#Only do this if the object has been alive for a couple of frames.
 		#This is proving to give a lot of error! Does anyone have a good explanation?
-		##if obj.age > 100000:
-		##	prediction = obj.kalman.predict()
-		##	expected_loc[0] = (prediction[0] + expected_loc[0]+expected_loc[2]/2)/2 - expected_loc[2]/2;
-		##	expected_loc[1] = (prediction[1] + expected_loc[1]+expected_loc[3]/2)/2 - expected_loc[3]/2;
-		##	print("After Kalman", expected_loc)
+		# if obj.age > 8:
+			# prediction = obj.kalman.predict()
+			# expected_loc[0] = (prediction[0] + expected_loc[0]+expected_loc[2]/2)/2 - expected_loc[2]/2;
+			# expected_loc[1] = (prediction[1] + expected_loc[1]+expected_loc[3]/2)/2 - expected_loc[3]/2;
+			# print("After Kalman", expected_loc)
 		
 		
 		#Now use the overlapping blobs, and find the nearest blob.
@@ -325,24 +335,14 @@ while (True):
 			
 			#Take the chosen blobject, center directly on blobject, avg the w/h vals.
 			if(size_diff_1 < size_diff_2):
-				expected_loc[2] = 0.5*obj1[2] + 0.5*expected_loc[2];
-				expected_loc[3] = 0.5*obj1[3] + 0.5*expected_loc[3];
-				expected_loc[0] = (obj1[0]+obj1[2]/2)-expected_loc[2]/2
-				expected_loc[1] = (obj1[1]+obj1[3]/2)-expected_loc[3]/2
+				expected_loc = obj1
 			else:
-				expected_loc[2] = 0.5*obj2[2] + 0.5*expected_loc[2];
-				expected_loc[3] = 0.5*obj2[3] + 0.5*expected_loc[3];
-				expected_loc[0] = (obj2[0]+obj2[2]/2)-expected_loc[2]/2
-				expected_loc[1] = (obj2[1]+obj2[3]/2)-expected_loc[3]/2
+				expected_loc = obj2
 				
 			obj.frames_without_blob_overlap = 0
 				
 		elif len(overlap_vals) >0 and overlap_vals[0][0] > 0.35:
-			obj1 = obj.foreground_overlaps[overlap_vals[0][1]]
-			expected_loc[2] = 0.5*obj1[2] + 0.5*expected_loc[2];
-			expected_loc[3] = 0.5*obj1[3] + 0.5*expected_loc[3];
-			expected_loc[0] = (obj1[0]+obj1[2]/2)-expected_loc[2]/2
-			expected_loc[1] = (obj1[1]+obj1[3]/2)-expected_loc[3]/2
+			expected_loc = obj.foreground_overlaps[overlap_vals[0][1]]
 			obj.frames_without_blob_overlap = 0
 		elif len(overlap_vals)>0 and (sorted(overlap_vals, reverse=True, key = lambda x:x[2]))[0][2] > 0.35: 
 			obj.frames_without_blob_overlap = 0
@@ -351,6 +351,7 @@ while (True):
 		obj.foreground_overlaps = []
 		
 		expected_loc = (int(expected_loc[0]), int(expected_loc[1]), int(expected_loc[2]), int(expected_loc[3]))
+		
 	
 		# back projection of histogram based on Hue and Saturation only
 		img_bproject = cv2.calcBackProject([img_hsv],[0,1],obj.crop_hist,[0,180,0,255],1);
@@ -358,13 +359,34 @@ while (True):
 
 		# apply camshift to predict new location (observation)
 		ret, obj.location = cv2.CamShift(img_bproject, expected_loc, term_crit);
+		
+		x,y,w,h = obj.location;
+		#If we found the object, we can update some of the tracking info
+		if not ( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
+			#CamShifting keeps exploding the bounding box, so lets force w/h to be expected vals.
+			cntr_x = x+0.5*w
+			cntr_y = y+0.5*h
+			w = expected_loc[2]
+			h = expected_loc[3]
+			obj.location = (max(0, int(cntr_x-0.5*w)), max(0, int(cntr_y-0.5*h)), w, h);
+			x,y,w,h = obj.location;
+		
+			# Now that we have a new location, lets re-calculate the hue
+			crop = frame[y:y+h,x:x+w]
+			hsv_crop =  cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+			mask2 = cv2.inRange(hsv_crop, np.array((0., float(s_lower),float(v_lower))), np.array((180.,float(s_upper),float(v_upper))));
+			obj.crop_hist = cv2.calcHist([hsv_crop],[0, 1],mask2,[180, 255],[0,180, 0, 255]);
+			cv2.normalize(obj.crop_hist,obj.crop_hist,0,255,cv2.NORM_MINMAX);
+			obj.crop_hist = obj.crop_hist.reshape(-1)
 
 		# draw observation on image - in BLUE
-		x,y,w,h = obj.location;
 		frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (255,0,0),2);
 
+
 		# use observation to correct kalman filter
-		obj.kalman.correct( np.array([x+w/2, y+h/2], np.float32));
+		obj.kalman.correct( np.array([np.float32(x+w/2), np.float32(y+h/2)], np.float32));
+		
+		
 	
 	
 	
@@ -378,6 +400,7 @@ while (True):
 	#	Object travelling too slow (Should we do this?)
 	#	Object not travelling in the same direction as main traffic body.
 	
+	
 	# Currently very simplistic, doesn't do all of the above.
 	for i in range(len(tracked_objs) - 1, -1, -1):
 		# Delete nondetections first
@@ -389,22 +412,24 @@ while (True):
 			del tracked_objs[i];
 			continue;
 		
-		# Delete things too big
+		# Delete things too big (but not non-detections)
 		# Need to refactor to account for distance etc.
-		if (w >= frame_width/4) or (h >= frame_height/4):
+		if False and ((w >= frame_width/4) or (h >= frame_height/4)):
 			print("Killed for size")
 			del tracked_objs[i];
 			continue;
 
 		#Delete things tracking something with no movement
-		if(obj.frames_without_blob_overlap > 10):
+		if(obj.frames_without_blob_overlap > 2):
 			print("Killed for no blobs")
 			del tracked_objs[i]
 			continue
 		
 		#Delete double tracking
 		is_duplicate = False;
-		for j in range(i-1, -1, -1):
+		for j in range(len(tracked_objs)):
+			if j == i: continue;
+			
 			obj2 = tracked_objs[j]
 			overlaps = getOverlaps(obj.location, obj2.location)
 			if overlaps[0] > 0.35 and overlaps[1] > 0.35 and obj.age <= obj2.age:
@@ -425,14 +450,13 @@ while (True):
 		# Delete non-moving
 		# Currently considers 2 pixels per frame to be moving.
 		# Should be updated to account for distance from drone and fps
-		if obj.speed < 2.5 :
+		if False and obj.speed < 2 :
 			print("Killed for speed")
 			del tracked_objs[i]
 			continue;
 		
 		#Draw surviving objects in green.
 		frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0),2);
-
 
 	# display image
 
