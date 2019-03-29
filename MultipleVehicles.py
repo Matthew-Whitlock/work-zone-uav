@@ -11,12 +11,16 @@ import argparse
 import sys
 import math
 import numpy as np
+from collections import deque
 
 #####################################################################
 
 fullscreen = False; # run in fullscreen mode
 use_mog = True; #Use MOG instead of MOG2
 input_fps = 30
+
+#Camera's observation angle information, in degrees
+cam_diagonal_fov = 94
 
 # parse command line arguments for camera ID or video file
 
@@ -49,6 +53,7 @@ windowName2 = "Hue histogram back projection"; # window name
 windowNameSelection = "initial selected region";
 windowNameBGS = "Background Subtraction";
 
+annotation_font = cv2.FONT_HERSHEY_SIMPLEX
 
 measurement = np.array((2,1), np.float32)
 prediction = np.zeros((2,1), np.float32)
@@ -120,8 +125,9 @@ def getOverlaps(rect1, rect2):
 	#print(return_list)
 	return  return_list
 
-def getOverlap(rect1, rect2):
-	return getOverlaps(rect1, rect2)[0]
+def getMaxOverlap(rect1, rect2):
+	overlaps = getOverlaps(rect1, rect2)
+	return max(overlaps[0], overlaps[1])
 
 
 class TrackedObj:
@@ -135,32 +141,42 @@ class TrackedObj:
 		self.location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
 		self.foreground_overlaps = []
 		self.frames_without_blob_overlap = 0;
-		self.last_location = (int(start_location[0]), int(start_location[1]), int(start_location[2]), int(start_location[3]))
+		self.past_centers = deque()
+		
 		
 	def updateSpatialHistory(self):
 		self.age += 1;
 		
-		if self.age < 3:
-			return;
 		
-		last_cntr_x = self.last_location[0] + self.last_location[2]/2
-		last_cntr_y = self.last_location[1] + self.last_location[3]/2
 		
 		cntr_x = self.location[0] + self.location[2]/2
 		cntr_y = self.location[1] + self.location[3]/2
+		cntr = (x,y)
+		self.past_centers.append(cntr);
+		
+		#We use 5 points ago vs this point to get avg speed/direction.
+		if self.age < 5:
+			return
+		
+		last_cntr = self.past_centers.popleft()
+		
+		
+		line = (cntr[0] - last_cntr[0], cntr[1] - last_cntr[1])
+		
 		#prediction = self.kalman.predict()
 		#pred_x = prediction[0]
 		#pred_y = prediction[1]
 		
-		cur_speed = math.sqrt( (cntr_x-last_cntr_x)**2 + (cntr_y-last_cntr_y)**2 );
-		self.speed = 0.5*cur_speed + 0.5*self.speed
+		cur_speed = math.sqrt( line[0]**2 + line[1]**2 );
+		self.speed = cur_speed
+		#self.speed = 0.5*cur_speed + 0.5*self.speed
 		
-		cur_line = (cntr_x - last_cntr_x, cntr_y - last_cntr_y)
+		
 		#atan2 gets angle in radians from -pi to pi
-		cur_direction = math.atan2(cur_line[1], cur_line[0]);
-		self.direction = 0.25*cur_direction + 0.75*self.direction;
-		
-		self.last_location = self.location
+		cur_direction = math.atan2(line[1], line[0]);
+		self.direction = cur_direction
+
+		#self.direction = 0.25*cur_direction + 0.75*self.direction;
 
 # List of current tracked objects
 tracked_objs = []
@@ -315,38 +331,34 @@ while (True):
 			# print("After Kalman", expected_loc)
 		
 		
-		#Now use the overlapping blobs, and find the nearest blob.
-		#Lots of room for improvement in how we use blobs here.
-		overlap_vals = []
-		for blob_num in range(len(obj.foreground_overlaps)):
-			overlap_vals.append((getOverlap(expected_loc, obj.foreground_overlaps[blob_num]), blob_num, getOverlap(obj.foreground_overlaps[blob_num], expected_loc)));
+		#Now use the overlapping blobs, and find the blob closest in size to what we're tracking
+		size_differences = []
+		for blob in obj.foreground_overlaps:
+			size_diff = abs((expected_loc[2]-blob[2])/expected_loc[2]) + abs((expected_loc[3]-blob[3])/expected_loc[3])
+			size_differences.append((size_diff, blob));
 		
-		overlap_vals = sorted(overlap_vals, reverse=True, key = lambda x:x[0]);
+		#sort the list by the size diff value, lowest difference first.
+		size_differences = sorted(size_differences, key = lambda x:x[0]);
 		
-		#No lets take the top two overlaps, and use the closest size-match to adjust the center
-		#Ignore overlaps if they're small overlap amounts.
-		if len(overlap_vals) > 1 and overlap_vals[1][0] > 0.35:
-			# We have two reasonable options, pick one and use it.
-			obj1 = obj.foreground_overlaps[overlap_vals[0][1]]
-			obj2 = obj.foreground_overlaps[overlap_vals[1][1]]
-			
-			size_diff_1 = abs((expected_loc[2]-obj1[2])/expected_loc[2]) + abs((expected_loc[3]-obj1[3])/expected_loc[3])
-			size_diff_2 = abs((expected_loc[2]-obj2[2])/expected_loc[2]) + abs((expected_loc[3]-obj2[3])/expected_loc[3])
-			
-			#Take the chosen blobject, center directly on blobject, avg the w/h vals.
-			if(size_diff_1 < size_diff_2):
-				expected_loc = obj1
-			else:
-				expected_loc = obj2
-				
+		#Use the one closest in desired size, but only if the overlap is reasonable
+		#IE, don't accidentally use a similarly-sized neighboring car.
+		#Take chosen blob to home-in on expected location. Use the center of the blob,
+		#and the avg of the current width and the blob's width (to allow for slow growth/shrinking,
+		#but still slightly avoid tracking two cars w/ one tracker)
+		found_overlapping_blob = False
+		for size_diff, blob in size_differences:
+			if getMaxOverlap(blob, expected_loc) > 0.6:
+				found_overlapping_blob = True
+				expected_loc[2] = (expected_loc[2] + blob[2])*0.5
+				expected_loc[3] = (expected_loc[3] + blob[3])*0.5
+				expected_loc[0] = (blob[0]+0.5*blob[2]) - 0.5*expected_loc[2]
+				expected_loc[1] = (blob[1]+0.5*blob[3]) - 0.5*expected_loc[3]
+				break
+		
+		if not found_overlapping_blob:
+			obj.frames_without_blob_overlap += 1
+		else:
 			obj.frames_without_blob_overlap = 0
-				
-		elif len(overlap_vals) >0 and overlap_vals[0][0] > 0.35:
-			expected_loc = obj.foreground_overlaps[overlap_vals[0][1]]
-			obj.frames_without_blob_overlap = 0
-		elif len(overlap_vals)>0 and (sorted(overlap_vals, reverse=True, key = lambda x:x[2]))[0][2] > 0.35: 
-			obj.frames_without_blob_overlap = 0
-		else: obj.frames_without_blob_overlap += 1
 		
 		obj.foreground_overlaps = []
 		
@@ -407,7 +419,7 @@ while (True):
 		obj = tracked_objs[i]
 		
 		x,y,w,h = obj.location;
-		if( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
+		if ((x <= 0) and ((x+w) >= frame_width)) or ((y <= 0) and ((y+h) >= frame_height)):
 			print("Killed for nondetection")
 			del tracked_objs[i];
 			continue;
@@ -457,6 +469,7 @@ while (True):
 		
 		#Draw surviving objects in green.
 		frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0),2);
+		frame = cv2.putText(frame, "Car", (x, y), annotation_font, 0.4, (0, 255, 0), 1);
 
 	# display image
 
