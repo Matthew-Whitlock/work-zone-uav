@@ -49,7 +49,6 @@ cap = cv2.VideoCapture();
 # define display window name
 
 windowName = "Vehicle Tracking"; # window name
-windowName2 = "Hue histogram back projection"; # window name
 windowNameSelection = "initial selected region";
 windowNameBGS = "Background Subtraction";
 
@@ -68,7 +67,7 @@ else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 20, varThreshold
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
 params.filterByArea = True
-params.minArea = 300
+params.minArea = 50
 params.maxArea = 50000
 params.filterByCircularity = False
 params.filterByConvexity = False
@@ -76,6 +75,13 @@ params.filterByConvexity = False
 
 # Set up the detector with set parameters.
 detector = cv2.SimpleBlobDetector_create(params)
+
+#Set up a custom convolutional filter to add a white pixel
+#around each existing white pixel
+#This will help connect slightly-broken-up blobs, at the cost
+#Of potentially connecting two blobs which are distinct but close.
+conv_kernel = np.ones((3,3), dtype=np.float32)
+
 
 # Open video, check that we are successful
 if not (((args.video_file) and (cap.open(str(args.video_file))))
@@ -86,19 +92,14 @@ if not (((args.video_file) and (cap.open(str(args.video_file))))
 
 # Create Windows
 cv2.namedWindow(windowName, cv2.WINDOW_NORMAL);
-cv2.namedWindow(windowName2, cv2.WINDOW_NORMAL);
 cv2.namedWindow(windowNameSelection, cv2.WINDOW_NORMAL);
 cv2.namedWindow(windowNameBGS, cv2.WINDOW_NORMAL);
 
 # set sliders for HSV selection thresholds
 s_lower = 60;
-cv2.createTrackbar("s lower", windowName2, s_lower, 255, nothing);
 s_upper = 255;
-cv2.createTrackbar("s upper", windowName2, s_upper, 255, nothing);
 v_lower = 32;
-cv2.createTrackbar("v lower", windowName2, v_lower, 255, nothing);
 v_upper = 255;
-cv2.createTrackbar("v upper", windowName2, v_upper, 255, nothing);
 
 # Setup the termination criteria for search, either 10 iteration or
 # move by at least 1 pixel pos. difference
@@ -129,6 +130,18 @@ def getMaxOverlap(rect1, rect2):
 	overlaps = getOverlaps(rect1, rect2)
 	return max(overlaps[0], overlaps[1])
 
+#This function returns a rectangle with the same center as reference,
+#and with w/l as a weighted average of to_scale and reference, weighted
+#in favor of to_scale
+def centerAndScale(to_scale, reference, weighting_factor):
+	#Set w/l, puts trash in x/y
+	to_return = [0,0,0,0]
+	to_return[2] = weighting_factor*to_scale[2] + (1-weighting_factor)*reference[2]
+	to_return[3] = weighting_factor*to_scale[3] + (1-weighting_factor)*reference[3]
+	to_return[0] = reference[0]+0.5*reference[2] - 0.5*to_scale[2]
+	to_return[1] = reference[1]+0.5*reference[3] - 0.5*to_scale[3]
+	return to_return
+	
 
 class TrackedObj:
 	def __init__(self, start_location):
@@ -146,8 +159,6 @@ class TrackedObj:
 		
 	def updateSpatialHistory(self):
 		self.age += 1;
-		
-		
 		
 		cntr_x = self.location[0] + self.location[2]/2
 		cntr_y = self.location[1] + self.location[3]/2
@@ -183,10 +194,13 @@ tracked_objs = []
 
 # We'll grab a frame before we begin processing, just to pull
 # info about frame size. Skipping one frame should be NBD.
-if (cap.isOpened):
-	ret, frame = cap.read();
-	# gets the image size (channel is not used)
-	frame_height, frame_width, channel = frame.shape
+ret, frame = cap.read();
+# gets the image size (channel is not used)
+frame_height, frame_width, channel = frame.shape
+
+
+past_bgs_frames = deque(maxlen = 10)
+last_detections = np.zeros((frame_height,frame_width), dtype=np.uint8)
 
 while (True):
 
@@ -199,16 +213,42 @@ while (True):
 
 	# start a timer (to see how long processing and display takes)
 	start_t = cv2.getTickCount();
-
-	# get parameters from track bars
-	s_lower = cv2.getTrackbarPos("s lower", windowName2);
-	s_upper = cv2.getTrackbarPos("s upper", windowName2);
-	v_lower = cv2.getTrackbarPos("v lower", windowName2);
-	v_upper = cv2.getTrackbarPos("v upper", windowName2);
 	
 	
 	# Applying background subtraction
 	mask = subtractor.apply(frame)
+	
+	# Add a white pixel around each existing white pixel,
+	# to help bridge tiny gaps in BGS
+	# First, we have to make a black border around the edge, to provide a default edge-case of 0
+	mask = cv2.copyMakeBorder(mask, 2,2,2,2, cv2.BORDER_CONSTANT, value=0)
+	mask = cv2.filter2D(mask, -1, conv_kernel);
+	# Now remove the extra border pixels
+	mask = mask[2:-2, 2:-2];
+	
+	#Now lets remove the always-on noise.
+	if len(past_bgs_frames) == 10:
+		#Any noise which has appeared for 2 sequential frames in the last 6 frames.
+		common_pixels = cv2.bitwise_and(past_bgs_frames[0], past_bgs_frames[1])
+		tmp = cv2.bitwise_and(past_bgs_frames[1], past_bgs_frames[2])
+		common_pixels = cv2.bitwise_or(common_pixels, tmp)
+		tmp = cv2.bitwise_and(past_bgs_frames[2], past_bgs_frames[3])
+		common_pixels = cv2.bitwise_or(common_pixels, tmp)
+		tmp = cv2.bitwise_and(past_bgs_frames[3], past_bgs_frames[4])
+		common_pixels = cv2.bitwise_or(common_pixels, tmp)
+		tmp = cv2.bitwise_and(past_bgs_frames[4], past_bgs_frames[5])
+		common_pixels = cv2.bitwise_or(common_pixels, tmp)
+		
+		#Don't filter out anything that was within the most-recent detection region.
+		common_pixels = cv2.bitwise_and(cv2.bitwise_not(last_detections), common_pixels);
+		
+		past_bgs_frames.append(mask)
+		
+		mask = cv2.bitwise_and(cv2.bitwise_not(common_pixels), mask);
+	else: past_bgs_frames.append(mask)
+	
+	#Clear the last_detections frame now that we're done with it.
+	last_detections[0:-1, 0:-1] = 0;
 	
 	# Detect blobs.
 	keypoints = detector.detect(mask)
@@ -235,6 +275,9 @@ while (True):
 		pt_2x = centerpoint[0] + radius
 		pt_1y = centerpoint[1] - radius
 		pt_2y = centerpoint[1] + radius
+		
+		past_bgs_frames[-1][int(pt_1y):int(pt_2y), int(pt_1x):int(pt_2x)] = 0;
+		last_detections[int(pt_1y):int(pt_2y), int(pt_1x):int(pt_2x)] = 1;
 		
 		#Draw all detected blobs on BGS window
 		cv2.rectangle(mask, (int(pt_1x), int(pt_1y)), (int(pt_2x), int(pt_2y)), (0,0,255), 3)
@@ -349,10 +392,7 @@ while (True):
 		for size_diff, blob in size_differences:
 			if getMaxOverlap(blob, expected_loc) > 0.6:
 				found_overlapping_blob = True
-				expected_loc[2] = (expected_loc[2] + blob[2])*0.5
-				expected_loc[3] = (expected_loc[3] + blob[3])*0.5
-				expected_loc[0] = (blob[0]+0.5*blob[2]) - 0.5*expected_loc[2]
-				expected_loc[1] = (blob[1]+0.5*blob[3]) - 0.5*expected_loc[3]
+				expected_loc = centerAndScale(expected_loc, blob, 0.9)
 				break
 		
 		if not found_overlapping_blob:
@@ -367,7 +407,6 @@ while (True):
 	
 		# back projection of histogram based on Hue and Saturation only
 		img_bproject = cv2.calcBackProject([img_hsv],[0,1],obj.crop_hist,[0,180,0,255],1);
-		cv2.imshow(windowName2,img_bproject);
 
 		# apply camshift to predict new location (observation)
 		ret, obj.location = cv2.CamShift(img_bproject, expected_loc, term_crit);
@@ -376,11 +415,8 @@ while (True):
 		#If we found the object, we can update some of the tracking info
 		if not ( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
 			#CamShifting keeps exploding the bounding box, so lets force w/h to be expected vals.
-			cntr_x = x+0.5*w
-			cntr_y = y+0.5*h
-			w = expected_loc[2]
-			h = expected_loc[3]
-			obj.location = (max(0, int(cntr_x-0.5*w)), max(0, int(cntr_y-0.5*h)), w, h);
+			obj.location = centerAndScale(expected_loc, obj.location, 1)
+			obj.location = (int(obj.location[0]), int(obj.location[1]), int(obj.location[2]), int(obj.location[3]))
 			x,y,w,h = obj.location;
 		
 			# Now that we have a new location, lets re-calculate the hue
@@ -432,7 +468,7 @@ while (True):
 			continue;
 
 		#Delete things tracking something with no movement
-		if(obj.frames_without_blob_overlap > 2):
+		if(obj.frames_without_blob_overlap > 4):
 			print("Killed for no blobs")
 			del tracked_objs[i]
 			continue
