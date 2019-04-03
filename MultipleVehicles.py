@@ -67,11 +67,11 @@ else: subtractor = cv2.createBackgroundSubtractorMOG2(history = 20, varThreshold
 params = cv2.SimpleBlobDetector_Params()
 params.filterByColor = False
 params.filterByArea = True
-params.minArea = 50
-params.maxArea = 50000
+params.minArea = 400
+params.maxArea = 500000000
 params.filterByCircularity = False
 params.filterByConvexity = False
-#params.filterByInertia = False
+params.filterByInertia = False
 
 # Set up the detector with set parameters.
 detector = cv2.SimpleBlobDetector_create(params)
@@ -80,7 +80,7 @@ detector = cv2.SimpleBlobDetector_create(params)
 #around each existing white pixel
 #This will help connect slightly-broken-up blobs, at the cost
 #Of potentially connecting two blobs which are distinct but close.
-conv_kernel = np.ones((3,3), dtype=np.float32)
+conv_kernel = np.ones((7,7), dtype=np.float32)
 
 
 # Open video, check that we are successful
@@ -126,9 +126,9 @@ def getOverlaps(rect1, rect2):
 	#print(return_list)
 	return  return_list
 
-def getMaxOverlap(rect1, rect2):
+def getAvgOverlap(rect1, rect2):
 	overlaps = getOverlaps(rect1, rect2)
-	return max(overlaps[0], overlaps[1])
+	return (overlaps[0] + overlaps[1])/2
 
 #This function returns a rectangle with the same center as reference,
 #and with w/l as a weighted average of to_scale and reference, weighted
@@ -198,10 +198,6 @@ ret, frame = cap.read();
 # gets the image size (channel is not used)
 frame_height, frame_width, channel = frame.shape
 
-
-past_bgs_frames = deque(maxlen = 10)
-last_detections = np.zeros((frame_height,frame_width), dtype=np.uint8)
-
 while (True):
 
 	# if video file successfully open then read frame from video
@@ -216,7 +212,8 @@ while (True):
 	
 	
 	# Applying background subtraction
-	mask = subtractor.apply(frame)
+	blur = cv2.GaussianBlur(frame, (27,27), 0)
+	mask = subtractor.apply(blur)
 	
 	# Add a white pixel around each existing white pixel,
 	# to help bridge tiny gaps in BGS
@@ -226,35 +223,12 @@ while (True):
 	# Now remove the extra border pixels
 	mask = mask[2:-2, 2:-2];
 	
-	#Now lets remove the always-on noise.
-	if len(past_bgs_frames) == 10:
-		#Any noise which has appeared for 2 sequential frames in the last 6 frames.
-		common_pixels = cv2.bitwise_and(past_bgs_frames[0], past_bgs_frames[1])
-		tmp = cv2.bitwise_and(past_bgs_frames[1], past_bgs_frames[2])
-		common_pixels = cv2.bitwise_or(common_pixels, tmp)
-		tmp = cv2.bitwise_and(past_bgs_frames[2], past_bgs_frames[3])
-		common_pixels = cv2.bitwise_or(common_pixels, tmp)
-		tmp = cv2.bitwise_and(past_bgs_frames[3], past_bgs_frames[4])
-		common_pixels = cv2.bitwise_or(common_pixels, tmp)
-		tmp = cv2.bitwise_and(past_bgs_frames[4], past_bgs_frames[5])
-		common_pixels = cv2.bitwise_or(common_pixels, tmp)
-		
-		#Don't filter out anything that was within the most-recent detection region.
-		common_pixels = cv2.bitwise_and(cv2.bitwise_not(last_detections), common_pixels);
-		
-		past_bgs_frames.append(mask)
-		
-		mask = cv2.bitwise_and(cv2.bitwise_not(common_pixels), mask);
-	else: past_bgs_frames.append(mask)
-	
-	#Clear the last_detections frame now that we're done with it.
-	last_detections[0:-1, 0:-1] = 0;
-	
 	# Detect blobs.
+	mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR);
 	keypoints = detector.detect(mask)
 	
 	#Turn the mask to a color version for drawing rectangles later.
-	mask = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR);
+	
 	
 	
 	
@@ -276,8 +250,6 @@ while (True):
 		pt_1y = centerpoint[1] - radius
 		pt_2y = centerpoint[1] + radius
 		
-		past_bgs_frames[-1][int(pt_1y):int(pt_2y), int(pt_1x):int(pt_2x)] = 0;
-		last_detections[int(pt_1y):int(pt_2y), int(pt_1x):int(pt_2x)] = 1;
 		
 		#Draw all detected blobs on BGS window
 		cv2.rectangle(mask, (int(pt_1x), int(pt_1y)), (int(pt_2x), int(pt_2y)), (0,0,255), 3)
@@ -288,7 +260,8 @@ while (True):
 			x,y,w,h = obj.location
 			if (pt_1x < x+w) and (pt_1y < y+h) and (pt_2x > x) and (pt_2y > y):
 				obj.foreground_overlaps.append((pt_1x, pt_1y, diameter, diameter));
-				new = False
+				if getAvgOverlap(obj.location, (pt_1x,pt_1y,diameter,diameter)) > 0.5:
+					new = False
 		# If it's not actually new, continue to check the next points.
 		if not new: 
 			continue
@@ -390,7 +363,7 @@ while (True):
 		#but still slightly avoid tracking two cars w/ one tracker)
 		found_overlapping_blob = False
 		for size_diff, blob in size_differences:
-			if getMaxOverlap(blob, expected_loc) > 0.6:
+			if getAvgOverlap(blob, expected_loc) > 0.6:
 				found_overlapping_blob = True
 				expected_loc = centerAndScale(expected_loc, blob, 0.9)
 				break
@@ -413,14 +386,14 @@ while (True):
 		
 		x,y,w,h = obj.location;
 		#If we found the object, we can update some of the tracking info
-		if not ( (x <= 0) or (y <= 0) or ((x+w) >= frame_width) or ((y+h) >= frame_height)):
+		if not ( ((x <= 0) and ((x+w) >= frame_width)) or ((y <= 0) and ((y+h) >= frame_height))):
 			#CamShifting keeps exploding the bounding box, so lets force w/h to be expected vals.
 			obj.location = centerAndScale(expected_loc, obj.location, 1)
 			obj.location = (int(obj.location[0]), int(obj.location[1]), int(obj.location[2]), int(obj.location[3]))
 			x,y,w,h = obj.location;
 		
 			# Now that we have a new location, lets re-calculate the hue
-			crop = frame[y:y+h,x:x+w]
+			crop = frame[max(0,y):min(y+h, frame_height),max(0,x):min(x+w, frame_width)]
 			hsv_crop =  cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
 			mask2 = cv2.inRange(hsv_crop, np.array((0., float(s_lower),float(v_lower))), np.array((180.,float(s_upper),float(v_upper))));
 			obj.crop_hist = cv2.calcHist([hsv_crop],[0, 1],mask2,[180, 255],[0,180, 0, 255]);
