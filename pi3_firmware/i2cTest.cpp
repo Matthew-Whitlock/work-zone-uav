@@ -120,7 +120,7 @@ int main(void)
 		}
 		else
 		{
-			toSend=sprintf(tempBuf,"Distance: %d\r\n", buffer[1]);
+			sprintf(&toSend,"Distance: %d\r\n", buffer[1]);
 			printf("Distance: %d\n", buffer[1]);
 			write(serial_port, &toSend, 60);
 			
