@@ -7,6 +7,7 @@ def det_position(dr_lat, dr_long, height, camera_ang_deg, heading, pix_col, pix_
     dr_long = radians(dr_long)
     heading = radians(heading)    
     camera_ang = radians(camera_ang_deg)
+    #NEED TO CONVERT TO BE MORE GENERIC
     #assume diagonal field of view of 94deg and 16:9 aspect ratio
     v_fov = radians(61.9)#From wikipedia "Angle of View" for 20mm equivalent 2019-04-11
     h_fov = radians(82.4)#Also from wiki
@@ -21,13 +22,13 @@ def det_position(dr_lat, dr_long, height, camera_ang_deg, heading, pix_col, pix_
     #Now to to find x distance:
     dif_beta = h_fov / num_x_pixels
     beta = (pix_col - 959.5) *dif_beta #Same assumptions as vertical calculation
-    tot_dist = sqrt(height*height + y_dist*y_dist) #Just a guess for the moment
-    x_dist = height * tan(beta)
+    x_dist = height * tan(beta) #There should be a y dependance, but we can't recognize cars at a distance anyway,
+                                #so it should be fine for as far as we're converned
     print(x_dist)
     north_dist = -1 * sin(heading) * x_dist + cos(heading) * y_dist
     east_dist = cos(heading) * x_dist + sin(heading) * y_dist
     
-    #Okay, great! Now to convert to GPS angles
+    #Now to convert to GPS angles
     r_earth = 6371800 #(m) This will be the radius to define our radians
     #Latitude is fortunately linear:
     north_radians = north_dist / r_earth
