@@ -14,6 +14,8 @@
 #define LW20_API_IMPLEMENTATION
 #include "lw20api.h"
 
+//#define DRONE_COMM_UP
+
 using namespace DJI::OSDK;
 using namespace DJI::OSDK::Telemetry;
 	
@@ -85,7 +87,7 @@ int main(int argc, char** argv) {
 	}
 	
 
-
+#ifdef DRONE_COMM_UP
   // Setup the OSDK: Read config file, create vehicle, activate.
   LinuxSetup linuxEnvironment(argc, argv);
   Vehicle*   vehicle = linuxEnvironment.getVehicle();
@@ -103,8 +105,6 @@ int main(int argc, char** argv) {
   
   int responseTimeout = 1000;
   // Counters
-  int elapsedTimeInMs = 0;
-  int timeToPrintInMs = 20000;
 
   // We will subscribe to six kinds of data:
   // 2. Fused Lat/Lon at 10Hz
@@ -156,8 +156,9 @@ int main(int argc, char** argv) {
   TypeMap<TOPIC_ALTITUDE_FUSIONED>::type altitude;
   TypeMap<TOPIC_VELOCITY>::type          velocity;
   TypeMap<TOPIC_QUATERNION>::type        quaternion;
-  int lidar_height = 0;
-	
+
+#endif
+
   //----- WRITE BYTES to control lidar-----	
   lidar_buffer[0]=0;
   lidar_buffer[1]=81;
@@ -169,16 +170,21 @@ int main(int argc, char** argv) {
     printf("Failed to write to the i2c bus.\n");
   }
   usleep(5000);
+  int lidar_height = 0;
   
-  // Print in a loop for 2 sec
+  int elapsedTimeInMs = 0;
+  int timeToPrintInMs = 100000;
+  // Print in a loop for 10 sec
   while (elapsedTimeInMs < timeToPrintInMs) {
 	 //read() returns the number of bytes actually read, if it doesn't match then an error occurred (e.g. no response from the device)
 	 if(read(file_i2c, lidar_buffer, length) != length){
       toSend << "Failed to get LIDAR height\r\n\r\n";
     } else {
       lidar_height = lidar_buffer[1];
+      lidar_height |= lidar_buffer[0] << 8;
     }
 
+#ifdef DRONE_COMM_UP
     flightStatus = vehicle->subscribe->getValue<TOPIC_STATUS_FLIGHT>();
     latLon       = vehicle->subscribe->getValue<TOPIC_GPS_FUSED>();
     altitude     = vehicle->subscribe->getValue<TOPIC_ALTITUDE_FUSIONED>();
@@ -191,30 +197,35 @@ int main(int argc, char** argv) {
     DJI::OSDK::float32_t yaw = vehicle->subscribe->getValue<TOPIC_GIMBAL_ANGLES>().z;
 			
     
-    toSend << "Flight Status                         = " << (int)flightStatus
+    toSend << "dst:" << (int)flightStatus
               << "\r\n";
-    toSend << "Position              (LLA)           = " << latLon.latitude
-              << ", " << latLon.longitude << ", " << altitude << "\r\n";
-    toSend << "Velocity              (vx,vy,vz)      = " << velocity.data.x
-              << ", " << velocity.data.y << ", " << velocity.data.z << "\r\n";
-    toSend << "Attitude Quaternion   (w,x,y,z)       = " << quaternion.q0
-              << ", " << quaternion.q1 << ", " << quaternion.q2 << ", "
-              << quaternion.q3 << "\r\n";
-    toSend << "Gimbal              (roll,pitch,yaw)      = " << roll
-              << ", " << pitch  << ", " << yaw << "\r\n";
-    toSend << "Lidar height              (cm)      = " << lidar_height << "\r\n";
+    toSend << "dla:" << latLon.latitude << "\r\n";
+    toSend << "dlo:" << latLon.longitude << "\r\n";
+    toSend << "dhb:" << altitude << "\r\n";
+    toSend << "dsx:" << velocity.data.x << "\r\n";
+    toSend << "dsy:" << velocity.data.y << "\r\n";
+    toSend << "dsz:" << velocity.data.z << "\r\n";
+    toSend << "dqw" << quaternion.q0 << "\r\n";
+    toSend << "dqx" << quaternion.q1 << "\r\n";
+    toSend << "dqy" << quaternion.q2 << "\r\n";
+    toSend << "dqz" << quaternion.q3 << "\r\n";
+    toSend << "car" << roll << "\r\n";
+    toSend << "cap" << pitch << "\r\n";
+    toSend << "cay" << yaw << "\r\n";
+#endif
+    toSend << "dhl:" << lidar_height << "\r\n";
     
-    toSend << "-------\r\n\r\n";
 	 printf("Sending: %s", &(toSend.str().front()));
 	 write(serial_port, &(toSend.str().front()), toSend.str().size());
     toSend.str("");
     
-    usleep(5000);
-    elapsedTimeInMs += 5;
+    usleep(100000);
+    elapsedTimeInMs += 100;
   }
 
   std::cout << "Done printing!\n";
+#ifdef DRONE_COMM_UP
   vehicle->subscribe->removePackage(0, responseTimeout);
-
+#endif
   return 0;
 }
