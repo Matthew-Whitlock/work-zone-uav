@@ -1,0 +1,93 @@
+DJI 001:
+Pitch  -5.50 
+Yaw  +159.10 
+Roll  +0.90 
+Camera Pitch  -10.00 
+Camera Yaw  +160.90 
+Camera Roll  +0.00
+Gps Latitude  36 deg 10' 35.44" N 
+Gps Longitude  97 deg 3' 7.67" W
+Gps Altitude  29.4 m
+
+DJI 002:
+Pitch  -0.10 
+Yaw  +86.40 
+Roll  +5.30 
+Camera Pitch  -36.40 
+Camera Yaw  +85.20 
+Camera Roll  +0.00
+Gps Latitude  36 deg 10' 35.44" N 
+Gps Longitude  97 deg 3' 7.67" W
+Gps Altitude  29.4 m
+
+
+DJI 003:
+Pitch +3.20 
+Yaw -174.40 
+Roll +2.70
+Camera Pitch -5.60 
+Camera Yaw -173.60 
+Camera Roll +0.00
+Gps Latitude 36 deg 10' 30.53" N 
+Gps Longitude 97 deg 3' 9.13" W
+Gps Altitude  23 m
+
+
+DJI 004:
+Pitch  +13.70 
+Yaw  -178.50 
+Roll  +0.40 
+Camera Pitch  -13.70 
+Camera Yaw  -177.90 
+Camera Roll  +0.00
+Gps Altitude  23.1 m
+Gps Latitude  36 deg 10' 29.20" N 
+Gps Longitude  97 deg 3' 9.20" W
+
+
+DJI 005:
+Pitch  +7.30 
+Yaw  -176.80 
+Roll  +1.20 
+Camera Pitch  -21.20 
+Camera Yaw  -177.60 
+Camera Roll  +0.00
+Gps Altitude  23.1 m 
+Gps Latitude  36 deg 10' 28.58" N 
+Gps Longitude  97 deg 3' 9.22" W
+
+
+DJI 006:
+Pitch  +5.90 
+Yaw  -176.70 
+Roll  +0.90 
+Camera Pitch  -21.20 
+Camera Yaw  -177.60 
+Camera Roll  +0.00
+Gps Altitude  23 m
+Gps Latitude  36 deg 10' 28.58" N 
+Gps Longitude  97 deg 3' 9.21" W
+
+
+DJI 007:
+Pitch  +4.90 
+Yaw  -178.30 
+Roll  +1.40 
+Camera Pitch  -14.00 
+Camera Yaw  -177.60 
+Camera Roll  +0.00
+Gps Altitude  35.5 m 
+Gps Latitude  36 deg 10' 30.17" N 
+Gps Longitude  97 deg 3' 10.79" W
+
+
+DJI 008:
+Pitch  +8.90 
+Yaw  -178.10 
+Roll  +2.40 
+Camera Pitch  -14.00 
+Camera Yaw  -177.70 
+Camera Roll  +0.00
+Gps Altitude  35.4 m 
+Gps Latitude  36 deg 10' 30.16" N 
+Gps Longitude  97 deg 3' 10.79" W
