@@ -5,8 +5,8 @@ Roll  +0.90
 Camera Pitch  -10.00 
 Camera Yaw  +160.90 
 Camera Roll  +0.00
-Gps Latitude  36 deg 10' 35.44" N 
-Gps Longitude  97 deg 3' 7.67" W
+Gps Latitude  36 deg 10' 35.44" N or 36.1765111
+Gps Longitude  97 deg 3' 7.67" W or -97.05213056
 Gps Altitude  29.4 m
 
 DJI 002:
@@ -16,8 +16,8 @@ Roll  +5.30
 Camera Pitch  -36.40 
 Camera Yaw  +85.20 
 Camera Roll  +0.00
-Gps Latitude  36 deg 10' 35.44" N 
-Gps Longitude  97 deg 3' 7.67" W
+Gps Latitude  36 deg 10' 35.44" N  or 36.176511
+Gps Longitude  97 deg 3' 7.67" W or -97.052131
 Gps Altitude  29.4 m
 
 
@@ -28,8 +28,8 @@ Roll +2.70
 Camera Pitch -5.60 
 Camera Yaw -173.60 
 Camera Roll +0.00
-Gps Latitude 36 deg 10' 30.53" N 
-Gps Longitude 97 deg 3' 9.13" W
+Gps Latitude 36 deg 10' 30.53" N or 36.1751472
+Gps Longitude 97 deg 3' 9.13" W or -97.05253611111111
 Gps Altitude  23 m
 
 
@@ -41,8 +41,8 @@ Camera Pitch  -13.70
 Camera Yaw  -177.90 
 Camera Roll  +0.00
 Gps Altitude  23.1 m
-Gps Latitude  36 deg 10' 29.20" N 
-Gps Longitude  97 deg 3' 9.20" W
+Gps Latitude  36 deg 10' 29.20" N or 36.1747778
+Gps Longitude  97 deg 3' 9.20" W or -97.05255555555556
 
 
 DJI 005:
@@ -53,8 +53,8 @@ Camera Pitch  -21.20
 Camera Yaw  -177.60 
 Camera Roll  +0.00
 Gps Altitude  23.1 m 
-Gps Latitude  36 deg 10' 28.58" N 
-Gps Longitude  97 deg 3' 9.22" W
+Gps Latitude  36 deg 10' 28.58" N or 36.1746056
+Gps Longitude  97 deg 3' 9.22" W or -97.0525611111111
 
 
 DJI 006:
@@ -65,8 +65,8 @@ Camera Pitch  -21.20
 Camera Yaw  -177.60 
 Camera Roll  +0.00
 Gps Altitude  23 m
-Gps Latitude  36 deg 10' 28.58" N 
-Gps Longitude  97 deg 3' 9.21" W
+Gps Latitude  36 deg 10' 28.58" N or 36.1746056
+Gps Longitude  97 deg 3' 9.21" W or -97.05255833333334
 
 
 DJI 007:
@@ -77,8 +77,8 @@ Camera Pitch  -14.00
 Camera Yaw  -177.60 
 Camera Roll  +0.00
 Gps Altitude  35.5 m 
-Gps Latitude  36 deg 10' 30.17" N 
-Gps Longitude  97 deg 3' 10.79" W
+Gps Latitude  36 deg 10' 30.17" N or 36.175047
+Gps Longitude  97 deg 3' 10.79" W or -97.052997
 
 
 DJI 008:
@@ -89,5 +89,5 @@ Camera Pitch  -14.00
 Camera Yaw  -177.70 
 Camera Roll  +0.00
 Gps Altitude  35.4 m 
-Gps Latitude  36 deg 10' 30.16" N 
-Gps Longitude  97 deg 3' 10.79" W
+Gps Latitude  36 deg 10' 30.16" N or 36.1750444
+Gps Longitude  97 deg 3' 10.79" W or -97.052997
