@@ -20,8 +20,8 @@ import time
 use_mog = True; #Use MOG instead of MOG2
 print_kill_cause = False
 simulate_drone = True
-show_bgs = True
-show_vid = True
+show_bgs = False
+show_vid = False
 
 input_fps = 23.98
 
@@ -677,118 +677,280 @@ def drone_comm(serial_to_use, drone_speed, drone_height, drone_direction, drone_
 ###############################################################################################
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Ui_MainUI(object):
-    def setupUi(self, MainUI):
-        MainUI.setObjectName("MainUI")
-        MainUI.resize(1007, 519)
-        self.centralWidget = QtWidgets.QWidget(MainUI)
-        self.centralWidget.setMinimumSize(QtCore.QSize(813, 0))
-        self.centralWidget.setObjectName("centralWidget")
-        
-        # horizontal layout that contains the sliders
-        self.horizontalLayoutWidget = QtWidgets.QWidget(self.centralWidget)
-        self.horizontalLayoutWidget.setGeometry(QtCore.QRect(10, 190, 371, 251))
+class Ui_Dialog(object):
+    def setupUi(self, Dialog):
+        Dialog.setObjectName("Dialog")
+        Dialog.resize(1234, 721)
+        self.horizontalLayoutWidget = QtWidgets.QWidget(Dialog)
+        self.horizontalLayoutWidget.setGeometry(QtCore.QRect(0, 0, 1232, 721))
         self.horizontalLayoutWidget.setObjectName("horizontalLayoutWidget")
         self.horizontalLayout = QtWidgets.QHBoxLayout(self.horizontalLayoutWidget)
-        self.horizontalLayout.setContentsMargins(11, 11, 11, 11)
-        self.horizontalLayout.setSpacing(6)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
+        self.verticalLayout = QtWidgets.QVBoxLayout()
+        self.verticalLayout.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.label = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label.setObjectName("label")
+        self.verticalLayout.addWidget(self.label)
+        self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_3.setSizeConstraint(QtWidgets.QLayout.SetFixedSize)
+        self.horizontalLayout_3.setSpacing(1)
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.src_input = QtWidgets.QLineEdit(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.src_input.sizePolicy().hasHeightForWidth())
+        self.src_input.setSizePolicy(sizePolicy)
+        self.src_input.setMinimumSize(QtCore.QSize(400, 20))
+        self.src_input.setObjectName("src_input")
+        self.horizontalLayout_3.addWidget(self.src_input)
+        self.src_button = QtWidgets.QPushButton(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.src_button.sizePolicy().hasHeightForWidth())
+        self.src_button.setSizePolicy(sizePolicy)
+        self.src_button.setObjectName("src_button")
+        self.horizontalLayout_3.addWidget(self.src_button)
+        self.verticalLayout.addLayout(self.horizontalLayout_3)
+        spacerItem = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem)
+        self.horizontalLayout_5 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_5.setObjectName("horizontalLayout_5")
+        self.label_2 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_2.setObjectName("label_2")
+        self.horizontalLayout_5.addWidget(self.label_2)
+        self.lineEdit_2 = QtWidgets.QLineEdit(self.horizontalLayoutWidget)
+        self.lineEdit_2.setObjectName("lineEdit_2")
+        self.horizontalLayout_5.addWidget(self.lineEdit_2)
+        self.verticalLayout.addLayout(self.horizontalLayout_5)
+        self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
+        self.radioButton_2 = QtWidgets.QRadioButton(self.horizontalLayoutWidget)
+        self.radioButton_2.setObjectName("radioButton_2")
+        self.horizontalLayout_4.addWidget(self.radioButton_2)
+        self.radioButton = QtWidgets.QRadioButton(self.horizontalLayoutWidget)
+        self.radioButton.setObjectName("radioButton")
+        self.horizontalLayout_4.addWidget(self.radioButton)
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+        self.horizontalLayout_18 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_18.setObjectName("horizontalLayout_18")
+        self.label_10 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_10.setObjectName("label_10")
+        self.horizontalLayout_18.addWidget(self.label_10)
+        self.queue_speed_input = QtWidgets.QLineEdit(self.horizontalLayoutWidget)
+        self.queue_speed_input.setObjectName("queue_speed_input")
+        self.horizontalLayout_18.addWidget(self.queue_speed_input)
+        self.pushButton = QtWidgets.QPushButton(self.horizontalLayoutWidget)
+        self.pushButton.setObjectName("pushButton")
+        self.horizontalLayout_18.addWidget(self.pushButton)
+        self.verticalLayout.addLayout(self.horizontalLayout_18)
+        self.line = QtWidgets.QFrame(self.horizontalLayoutWidget)
+        self.line.setFrameShape(QtWidgets.QFrame.HLine)
+        self.line.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.line.setObjectName("line")
+        self.verticalLayout.addWidget(self.line)
+        self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_6.setObjectName("horizontalLayout_6")
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_6.addItem(spacerItem1)
+        self.verticalLayout_4 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_4.setSpacing(0)
+        self.verticalLayout_4.setObjectName("verticalLayout_4")
+        self.horizontalLayout_7 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_7.setObjectName("horizontalLayout_7")
+        self.blur_slider = QtWidgets.QSlider(self.horizontalLayoutWidget)
+        self.blur_slider.setEnabled(True)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.blur_slider.sizePolicy().hasHeightForWidth())
+        self.blur_slider.setSizePolicy(sizePolicy)
+        self.blur_slider.setMinimumSize(QtCore.QSize(20, 0))
+        self.blur_slider.setMaximumSize(QtCore.QSize(20, 16777215))
+        self.blur_slider.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
+        self.blur_slider.setAcceptDrops(False)
+        self.blur_slider.setToolTip("")
+        self.blur_slider.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.blur_slider.setAutoFillBackground(False)
+        self.blur_slider.setMinimum(3)
+        self.blur_slider.setMaximum(31)
+        self.blur_slider.setSingleStep(2)
+        self.blur_slider.setProperty("value", 11)
+        self.blur_slider.setOrientation(QtCore.Qt.Vertical)
+        self.blur_slider.setInvertedAppearance(False)
+        self.blur_slider.setInvertedControls(False)
+        self.blur_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.blur_slider.setTickInterval(2)
+        self.blur_slider.setObjectName("blur_slider")
+        self.horizontalLayout_7.addWidget(self.blur_slider)
+        self.verticalLayout_4.addLayout(self.horizontalLayout_7)
+        spacerItem2 = QtWidgets.QSpacerItem(101, 0, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        self.verticalLayout_4.addItem(spacerItem2)
+        self.horizontalLayout_12 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_12.setObjectName("horizontalLayout_12")
+        self.label_3 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_3.sizePolicy().hasHeightForWidth())
+        self.label_3.setSizePolicy(sizePolicy)
+        self.label_3.setMinimumSize(QtCore.QSize(0, 0))
+        self.label_3.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_3.setObjectName("label_3")
+        self.horizontalLayout_12.addWidget(self.label_3)
+        self.verticalLayout_4.addLayout(self.horizontalLayout_12)
+        self.horizontalLayout_6.addLayout(self.verticalLayout_4)
+        spacerItem3 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_6.addItem(spacerItem3)
+        self.verticalLayout_5 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_5.setSpacing(0)
+        self.verticalLayout_5.setObjectName("verticalLayout_5")
+        self.horizontalLayout_9 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_9.setSpacing(0)
+        self.horizontalLayout_9.setObjectName("horizontalLayout_9")
+        self.blob_slider = QtWidgets.QSlider(self.horizontalLayoutWidget)
+        self.blob_slider.setMinimum(30)
+        self.blob_slider.setMaximum(500)
+        self.blob_slider.setPageStep(50)
+        self.blob_slider.setOrientation(QtCore.Qt.Vertical)
+        self.blob_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.blob_slider.setTickInterval(50)
+        self.blob_slider.setObjectName("blob_slider")
+        self.horizontalLayout_9.addWidget(self.blob_slider)
+        self.verticalLayout_5.addLayout(self.horizontalLayout_9)
+        self.label_4 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_4.setMinimumSize(QtCore.QSize(101, 0))
+        self.label_4.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_4.setObjectName("label_4")
+        self.verticalLayout_5.addWidget(self.label_4)
+        self.horizontalLayout_6.addLayout(self.verticalLayout_5)
+        spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_6.addItem(spacerItem4)
+        self.verticalLayout_6 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_6.setSpacing(0)
+        self.verticalLayout_6.setObjectName("verticalLayout_6")
+        self.horizontalLayout_10 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.buffer_slider = QtWidgets.QSlider(self.horizontalLayoutWidget)
+        self.buffer_slider.setMinimum(1)
+        self.buffer_slider.setMaximum(9)
+        self.buffer_slider.setSingleStep(2)
+        self.buffer_slider.setPageStep(2)
+        self.buffer_slider.setProperty("value", 5)
+        self.buffer_slider.setOrientation(QtCore.Qt.Vertical)
+        self.buffer_slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.buffer_slider.setTickInterval(2)
+        self.buffer_slider.setObjectName("buffer_slider")
+        self.horizontalLayout_10.addWidget(self.buffer_slider)
+        self.verticalLayout_6.addLayout(self.horizontalLayout_10)
+        self.label_5 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_5.setObjectName("label_5")
+        self.verticalLayout_6.addWidget(self.label_5)
+        self.horizontalLayout_6.addLayout(self.verticalLayout_6)
+        spacerItem5 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_6.addItem(spacerItem5)
+        self.verticalLayout.addLayout(self.horizontalLayout_6)
+        spacerItem6 = QtWidgets.QSpacerItem(20, 5, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem6)
+        self.horizontalLayout.addLayout(self.verticalLayout)
+        self.verticalLayout_2 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.graphicsView = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.graphicsView.sizePolicy().hasHeightForWidth())
+        self.graphicsView.setSizePolicy(sizePolicy)
+        self.graphicsView.setMinimumSize(QtCore.QSize(720, 405))
+        self.graphicsView.setBaseSize(QtCore.QSize(720, 405))
+        self.graphicsView.setObjectName("graphicsView")
+        self.verticalLayout_2.addWidget(self.graphicsView)
+        self.horizontalLayout_13 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_13.setObjectName("horizontalLayout_13")
+        self.verticalLayout_7 = QtWidgets.QVBoxLayout()
+        self.verticalLayout_7.setObjectName("verticalLayout_7")
+        self.horizontalLayout_14 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_14.setObjectName("horizontalLayout_14")
+        self.label_6 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_6.sizePolicy().hasHeightForWidth())
+        self.label_6.setSizePolicy(sizePolicy)
+        self.label_6.setObjectName("label_6")
+        self.horizontalLayout_14.addWidget(self.label_6)
+        self.EOQ_Label = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.EOQ_Label.sizePolicy().hasHeightForWidth())
+        self.EOQ_Label.setSizePolicy(sizePolicy)
+        self.EOQ_Label.setAlignment(QtCore.Qt.AlignCenter)
+        self.EOQ_Label.setObjectName("EOQ_Label")
+        self.horizontalLayout_14.addWidget(self.EOQ_Label)
+        self.verticalLayout_7.addLayout(self.horizontalLayout_14)
+        self.horizontalLayout_15 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_15.setObjectName("horizontalLayout_15")
+        self.label_9 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_9.setObjectName("label_9")
+        self.horizontalLayout_15.addWidget(self.label_9)
+        self.roadsign_gps_input = QtWidgets.QLineEdit(self.horizontalLayoutWidget)
+        self.roadsign_gps_input.setAlignment(QtCore.Qt.AlignCenter)
+        self.roadsign_gps_input.setObjectName("roadsign_gps_input")
+        self.horizontalLayout_15.addWidget(self.roadsign_gps_input)
+        self.verticalLayout_7.addLayout(self.horizontalLayout_15)
+        self.horizontalLayout_16 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_16.setObjectName("horizontalLayout_16")
+        self.label_7 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        self.label_7.setObjectName("label_7")
+        self.horizontalLayout_16.addWidget(self.label_7)
+        self.label_8 = QtWidgets.QLabel(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_8.sizePolicy().hasHeightForWidth())
+        self.label_8.setSizePolicy(sizePolicy)
+        self.label_8.setAlignment(QtCore.Qt.AlignCenter)
+        self.label_8.setObjectName("label_8")
+        self.horizontalLayout_16.addWidget(self.label_8)
+        self.verticalLayout_7.addLayout(self.horizontalLayout_16)
+        self.horizontalLayout_13.addLayout(self.verticalLayout_7)
+        self.graphicsView_2 = QtWidgets.QGraphicsView(self.horizontalLayoutWidget)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.graphicsView_2.sizePolicy().hasHeightForWidth())
+        self.graphicsView_2.setSizePolicy(sizePolicy)
+        self.graphicsView_2.setMinimumSize(QtCore.QSize(275, 275))
+        self.graphicsView_2.setObjectName("graphicsView_2")
+        self.horizontalLayout_13.addWidget(self.graphicsView_2)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_13)
+        self.horizontalLayout.addLayout(self.verticalLayout_2)
 
-        # slider widgets
-        self.sUpperSlider = QtWidgets.QSlider(self.horizontalLayoutWidget)
-        self.sUpperSlider.setOrientation(QtCore.Qt.Vertical)
-        self.sUpperSlider.setObjectName("sUpperSlider")
-        self.horizontalLayout.addWidget(self.sUpperSlider)
-        self.vUpperSlider = QtWidgets.QSlider(self.horizontalLayoutWidget)
-        self.vUpperSlider.setOrientation(QtCore.Qt.Vertical)
-        self.vUpperSlider.setObjectName("vUpperSlider")
-        self.horizontalLayout.addWidget(self.vUpperSlider)
-        self.vLowerSlider = QtWidgets.QSlider(self.horizontalLayoutWidget)
-        self.vLowerSlider.setOrientation(QtCore.Qt.Vertical)
-        self.vLowerSlider.setObjectName("vLowerSlider")
-        self.horizontalLayout.addWidget(self.vLowerSlider)
-        
-        # vertical layout that holds the source and export input
-        # along with the associated buttons that gather inputte text
-        self.verticalLayoutWidget_3 = QtWidgets.QWidget(self.centralWidget)
-        self.verticalLayoutWidget_3.setGeometry(QtCore.QRect(9, 9, 251, 171))
-        self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
-        self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.verticalLayoutWidget_3)
-        self.verticalLayout_3.setContentsMargins(11, 11, 11, 11)
-        self.verticalLayout_3.setSpacing(6)
-        self.verticalLayout_3.setObjectName("verticalLayout_3")
+        self.retranslateUi(Dialog)
+        QtCore.QMetaObject.connectSlotsByName(Dialog)
 
-        # source input
-        self.sourceLabel = QtWidgets.QLabel(self.verticalLayoutWidget_3)
-        self.sourceLabel.setObjectName("sourceLabel")
-        self.verticalLayout_3.addWidget(self.sourceLabel)
-        self.sourceInput = QtWidgets.QLineEdit(self.verticalLayoutWidget_3)
-        self.sourceInput.setText("")
-        self.sourceInput.setObjectName("sourceInput")
-        self.verticalLayout_3.addWidget(self.sourceInput)
-
-        # export input
-        self.exportLabel = QtWidgets.QLabel(self.verticalLayoutWidget_3)
-        self.exportLabel.setObjectName("exportLabel")
-        self.verticalLayout_3.addWidget(self.exportLabel)
-        self.exportInput = QtWidgets.QLineEdit(self.verticalLayoutWidget_3)
-        self.exportInput.setText("")
-        self.exportInput.setObjectName("exportInput")
-        self.verticalLayout_3.addWidget(self.exportInput)
-
-        # checkbox for default window size
-        # note: may take this out if I cannot get it figured out
-        self.defaultCheckBox = QtWidgets.QCheckBox(self.verticalLayoutWidget_3)
-        self.defaultCheckBox.setObjectName("defaultCheckBox")
-        self.verticalLayout_3.addWidget(self.defaultCheckBox)
-
-        # enter button for source
-        self.enterButton = QtWidgets.QPushButton(self.centralWidget)
-        self.enterButton.setGeometry(QtCore.QRect(260, 50, 113, 32))
-        self.enterButton.setAutoDefault(True)
-        self.enterButton.setObjectName("enterButton")
-
-        # export button for export input
-        self.exportButton = QtWidgets.QPushButton(self.centralWidget)
-        self.exportButton.setGeometry(QtCore.QRect(260, 120, 113, 32))
-        self.exportButton.setAutoDefault(True)
-        self.exportButton.setDefault(False)
-        self.exportButton.setFlat(False)
-        self.exportButton.setObjectName("exportButton")
-
-        # window that displays the input from the camera or the associated video file
-        # note: video file must be specified in the code. Work on getting it from
-        # the command line
-        self.trafficWindow = QtWidgets.QLabel(self.centralWidget)
-        self.trafficWindow.setGeometry(QtCore.QRect(400, 10, 601, 421))
-        self.trafficWindow.setScaledContents(True)
-        self.trafficWindow.setObjectName("trafficWindow")
-        MainUI.setCentralWidget(self.centralWidget)
-
-        self.menuBar = QtWidgets.QMenuBar(MainUI)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 1007, 22))
-        self.menuBar.setObjectName("menuBar")
-        MainUI.setMenuBar(self.menuBar)
-        self.mainToolBar = QtWidgets.QToolBar(MainUI)
-        self.mainToolBar.setObjectName("mainToolBar")
-        MainUI.addToolBar(QtCore.Qt.TopToolBarArea, self.mainToolBar)
-        self.statusBar = QtWidgets.QStatusBar(MainUI)
-        self.statusBar.setObjectName("statusBar")
-        MainUI.setStatusBar(self.statusBar)
-
-        self.retranslateUi(MainUI)
-        self.exportInput.returnPressed.connect(self.exportInput.copy)
-        self.sourceInput.returnPressed.connect(self.sourceInput.copy)
-        QtCore.QMetaObject.connectSlotsByName(MainUI)
-
-    def retranslateUi(self, MainUI):
+    def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        MainUI.setWindowTitle(_translate("MainUI", "UAV GUI"))
-        self.sourceLabel.setText(_translate("MainUI", "Source:"))
-        self.exportLabel.setText(_translate("MainUI", "Export:"))
-        self.defaultCheckBox.setText(_translate("MainUI", "Default Size"))
-        self.enterButton.setText(_translate("MainUI", "Enter"))
-        self.exportButton.setText(_translate("MainUI", "Export"))
+        Dialog.setWindowTitle(_translate("Dialog", "Work Zone UAV Project"))
+        self.label.setText(_translate("Dialog", "Source"))
+        self.src_button.setText(_translate("Dialog", "Ok"))
+        self.label_2.setText(_translate("Dialog", "Road Sign IP:"))
+        self.radioButton_2.setText(_translate("Dialog", "Normal Speed (65 MPH)"))
+        self.radioButton.setText(_translate("Dialog", "Slow down (35MPH)"))
+        self.label_10.setText(_translate("Dialog", "Queue Speed:"))
+        self.pushButton.setText(_translate("Dialog", "PushButton"))
+        self.label_3.setText(_translate("Dialog", "Blur Radius"))
+        self.label_4.setText(_translate("Dialog", "Minimum Blob Size"))
+        self.label_5.setText(_translate("Dialog", "Detection Buffer Size"))
+        self.label_6.setText(_translate("Dialog", "End of Queue (deg N,E):"))
+        self.EOQ_Label.setText(_translate("Dialog", "N/A"))
+        self.label_9.setText(_translate("Dialog", "Road Sign position (deg N,E):"))
+        self.label_7.setText(_translate("Dialog", "Distance:"))
+        self.label_8.setText(_translate("Dialog", "TextLabel"))
 
 class Thread(QtCore.QThread):
 	changePixmap = QtCore.pyqtSignal(QtGui.QImage)
@@ -812,31 +974,70 @@ class Thread(QtCore.QThread):
 		self.flag = False
 
 
-class Prog(QtWidgets.QMainWindow, Ui_MainUI):
-	def __init__(self, output_frame):
+class Prog(QtWidgets.QMainWindow, Ui_Dialog):
+	def __init__(self, output_frame, blur_size, min_blob_size, detection_buffer, change_made, src_dict, src_set):
 		super().__init__()
 		self.setupUi(self)
+		
+		self.blur_size = blur_size
+		self.min_blob_size = min_blob_size
+		self.detection_buffer = detection_buffer
+		self.change_made = change_made
+		self.src_dict = src_dict
+		self.src_set = src_set
+		
 		self.th = Thread(self)
 		self.th.output_frame = output_frame
 		self.th.changePixmap.connect(self.setImage)
 		self.th.start()
+		
+		self.blob_slider.sliderReleased.connect(self.update_blobs)
+		self.blur_slider.sliderReleased.connect(self.update_blur)
+		self.buffer_slider.sliderReleased.connect(self.update_buffer)
+		self.src_button.clicked.connect(self.update_src)
 
 	@QtCore.pyqtSlot(QtGui.QImage) 
 	def setImage(self, image):
-		self.trafficWindow.setPixmap(QtGui.QPixmap.fromImage(image))
+		self.graphicsView.setPixmap(QtGui.QPixmap.fromImage(image))
 
 	def closeEvent(self, event):
 		self.th.stop()
 		self.th.wait()
 		super().closeEvent(event)
+	
+	def update_blobs(self):
+		with self.change_made.get_lock():
+			self.min_blob_size.value = int(self.blob_slider.value())
+			self.change_made.value = True
+	
+	def update_blur(self):
+		with self.change_made.get_lock():
+			to_use = int(self.blur_slider.value())
+			if to_use % 2 == 0:
+				to_use += 1
+			self.blur_size.value = to_use
+			self.change_made.value = True
+	
+	def update_buffer(self):
+		with self.change_made.get_lock():
+			to_use = int(self.buffer_slider.value())
+			if to_use % 2 == 0:
+				to_use += 1
+			self.detection_buffer.value = to_use
+			self.change_made.value = True
+			
+	def update_src(self):
+		with self.src_set.get_lock():
+			self.src_set.value = True
+			self.src_dict["src"] = self.src_input.text()
+			
+		
 
-def open_gui(output_frame):
+def open_gui(output_frame, blur_size, min_blob_size, detection_buffer, change_made, src_dict, src_set):
 	Program =  QtWidgets.QApplication(sys.argv)
-	MyProg = Prog(output_frame)
+	MyProg = Prog(output_frame, blur_size, min_blob_size, detection_buffer, change_made, src_dict, src_set)
 	MyProg.show()
-	sys.exit(Program.exec_())
-	
-	
+	Program.exec_()
 	
 	
 	
@@ -845,7 +1046,7 @@ if __name__ == '__main__':
 
 	print("Tracked Objects: BLUE");
 	print("Likely cars: GREEN\n");
-	
+
 	###########################################################################################
 	#Find Correct serial for drone communication (IE find correct USB port
 	###########################################################################################
@@ -854,31 +1055,35 @@ if __name__ == '__main__':
 	#All of these are lockless, they are write only from one process and read only from the rest, 
 	#no locks needed.
 	drone_speed = Value('d', 0.0, lock=False)
-	drone_height = Value('d', 33.1, lock=False) #100 ft in centimeters/ Altitude
-	drone_direction = Value('d', 4.4, lock=False) #Camera Yaw
-	drone_cam_direction = Value('d', 90.0  -36.9 , lock=False) #Camera Pitch
-	drone_lat = Value('d', 36.1156472, lock=False)
-	drone_long = Value('d', -97.10574444, lock=False)
+	drone_height = Value('d', 2940, lock=False) 
+	drone_direction = Value('d', 90.0, lock=False) 
+	drone_cam_direction = Value('d', -10.0, lock=False)
+	drone_lat = Value('d', 36.12390612329048, lock=False)
+	drone_long = Value('d', -97.06877946853638, lock=False)
 	
 	if not simulate_drone:
 		print("Searching for drone communication link...", end ="");
 		ports = list(serial.tools.list_ports.comports())
 		found = False
 		for p in ports:
-			ser = Serial(port=p,baudrate=9600,timeout=0.5)
-			line = ser.readline()
-			if re.match('[a-z,A-Z][a-z,A-Z][a-z,A-Z]:*', line) != None:
-				print(" found!")
-				found = True
-				port_to_use = p
+			ser = Serial(port=p[0],baudrate=9600,timeout=0.5)
+			for i in range(3):
+				line = ser.readline().decode("utf-8")
+				if re.match('[a-z,A-Z][a-z,A-Z][a-z,A-Z]:*', line) != None:
+					print(" found!")
+					found = True
+					serial_to_use = p[0]
+					ser.close()
+					break
+				print(".", end ="")
+			ser.close()
+			if found:
 				break
-			print(".", end ="")
 			
 		if not found:
 			print(" unable to find port, aborting!")
 			exit()
-		
-		serial_process = Serial(target=drone_comm, args=(port_to_use, drone_speed, drone_height, drone_direction, drone_cam_direction, drone_lat, drone_long))
+		serial_process = Process(target=drone_comm, args=(serial_to_use, drone_speed, drone_height, drone_direction, drone_cam_direction, drone_lat, drone_long) );
 		serial_process.start()
 	
 	
@@ -903,24 +1108,38 @@ if __name__ == '__main__':
 	#Configure mutable parameters
 	###########################################################################################
 	blur_size = Value('i', 11, lock=False);
-	min_blob_size = Value('i', 60, lock=False);
+	min_blob_size = Value('i', 30, lock=False);
 	detection_buffer = Value('i', 5, lock=False);
 	
 	#Tells the tracking to re-init any changed values.
 	change_made = Value('i', True);
+	src_set = Value('i', False);
+	manager = multiprocessing.Manager()
+	src_dict = manager.dict()
 	
 	#Output from tracking, array representing the frame.
 	output_frame = multiprocessing.Array('B', int(np.prod(frame_dims)));
 	
+	gui_process = Process(target=open_gui, args=(output_frame, blur_size, min_blob_size, detection_buffer, change_made, src_dict, src_set))
+	gui_process.start()
 	
-	tracking_process = Process(target=do_track, args=(cap_src, "Feed 1", blur_size, min_blob_size, detection_buffer, change_made, drone_speed, drone_height, drone_direction, drone_cam_direction, drone_lat, drone_long, output_frame));
-	tracking_process.start();
+	tracking_process = None
+	while gui_process.is_alive():
+		if src_set.value == True:
+			with src_set.get_lock():
+				if not tracking_process == None:
+					tracking_process.terminate();
+				print("Running w/ src", src_dict["src"])
+				tracking_process = Process(target=do_track, args=(src_dict["src"], "Feed 1", blur_size, min_blob_size, detection_buffer, change_made, drone_speed, drone_height, drone_direction, drone_cam_direction, drone_lat, drone_long, output_frame));
+				tracking_process.start();
+				src_set.value = False
+		
 	
 	
-	open_gui(output_frame)
 	
 	#Do cleanup once the gui is closed.
-	tracking_process.terminate();
+	if not tracking_process == None:
+		tracking_process.terminate();
 	if not simulate_drone:
 		serial_process.terminate()
 	

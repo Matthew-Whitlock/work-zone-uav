@@ -34,3 +34,6 @@
 # bin or build folders
 bin/
 build/
+fov_tst_vids/
+Full\ Res\ Videos/
+*.pdf
