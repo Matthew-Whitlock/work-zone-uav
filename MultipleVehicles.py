@@ -2,6 +2,7 @@ import cv2 #opencv, need opencv-contrib-python
 import argparse
 import sys
 import math
+from math import radians, degrees, atan, tan, sin, cos, sqrt
 import numpy as np  #numpy
 import sys
 from collections import deque
@@ -19,7 +20,7 @@ import time
 use_mog = True; #Use MOG instead of MOG2
 print_kill_cause = False
 simulate_drone = True
-show_bgs = False
+show_bgs = True
 show_vid = True
 
 input_fps = 23.98
@@ -80,27 +81,50 @@ def pixelsToXY(drone, pix_col, pix_row, num_x_pixels=720, num_y_pixels=404):
 	#First, converting everything to rads for Python
 	heading = math.radians(drone.direction.value)
 	camera_ang = math.radians(drone.camera_angle.value)
-	#NEED TO CONVERT TO BE MORE GENERIC
-	#assume diagonal field of view of 94deg and 16:9 aspect ratio
-	v_fov = math.radians(61.9)#From wikipedia "Angle of View" for 20mm equivalent 2019-04-11
-	h_fov = math.radians(82.4)#Also from wiki
+	height = drone.height.value
+	#This is entirely specific to the camera we are using, the Zenmuse X3
+	#diagonal field of view of 94deg and sensor 4:3 aspect ratio, but (vertically) cropped to 16:9 for video
+	#FOVs calculated using diagonal fov = 94.5
+	h_fov = radians(81.752) # 81.752, 84.0
+	v_fov = radians(50.2) # 51.9177, 61.9
+		
+	#not all pixels are created equal, they do not have the same angle offsets.
+	#Calculate a 'unitless focal length' wrt num_y_pixels and v_fov
+	f = (num_y_pixels/2)/tan(v_fov/2) #value w/ y and v_fov should be ~same as x and h_fov
+
 
 	#First going to find y distance from drone, since it is conceptually more clear:
-	dif_alpha = v_fov / num_y_pixels #Assume that each row of pixels are at the same alpha where dif_alpha is the change in alpha between each row
-	alpha = (num_y_pixels/2-pix_row) * dif_alpha #Assume that bottom row is labeled as 0, and top as 1079
+	alpha = atan((0.5*num_y_pixels - pix_row)/f)
 	tot_y_angle = camera_ang + alpha
-	y_dist = drone.height.value * math.tan(tot_y_angle)
-
+	y_dist = height * tan(tot_y_angle)
+		
 	#Now to to find x distance:
-	dif_beta = h_fov / num_x_pixels
-	beta = (pix_col - num_x_pixels/2) *dif_beta #Same assumptions as vertical calculation
-	x_dist = drone.height.value * math.tan(beta) #There should be a y dependance, but we can't recognize cars at a distance anyway,
-												 #so it should be fine for as far as we're converned
-
+	beta = atan((pix_col - 0.5*num_x_pixels)/f) #Same assumptions as vertical calculation
+	x_dist = tan(beta) * y_dist
 	north_dist = -1 * math.sin(heading) * x_dist + math.cos(heading) * y_dist
 	east_dist = math.cos(heading) * x_dist + math.sin(heading) * y_dist
 
 	return (north_dist, east_dist)
+	
+def XYToGPS(north_dist, east_dist, drone):
+	#Now to convert to GPS angles
+	r_earth = 6378137 
+	#(m) This will be the radius to define our radians
+	dr_lat = radians(drone.lat.value)
+	dr_long = radians(drone.long.value)
+	#Latitude is fortunately linear:
+	north_radians = north_dist / r_earth
+	obj_lat = north_radians + dr_lat
+	#Longitude is a bit tricker, because we need equivalent earth radius:
+	equiv_r_earth = r_earth * cos(obj_lat)
+	east_radians = east_dist / equiv_r_earth
+	obj_long = east_radians + dr_long
+		
+	#Convert back to degrees and output
+	obj_lat = degrees(obj_lat)
+	obj_long = degrees(obj_long)
+	lat_long_obj = [obj_lat, obj_long]
+	return lat_long_obj
 
 
 #Finds the distance in meters between two gps coordinates
@@ -114,23 +138,6 @@ def gpsToMeters(lat1, lon1, lat2, lon2):
 	d = R * c
 	return d * 1000
 
-#Finds the GPS coordinate of something using the distance and angle from a known gps coordinate	
-def newGPSfromDist(lat, lon, dist, angle):
-	R = 6378137 
-	new_lat = 180/math.pi*((dist*math.sin(math.pi*angle/180)/R)+lat*math.pi/180)
-	new_lon = 180/math.pi*((dist*math.cos(math.pi*angle/180)/R)+lon*math.pi/180)
-	new_coord = [new_lat, new_lon]
-	return new_coord
-
-#Changes a pixel location to gps coordinates based off of how many pixels there are, bottom left gps location, and top right gps location
-def pixelsToGPS(x, y, pix_x, pix_y, bl, tr):
-	new_coord = [0, 0]
-	dxgps = tr[0] - bl[0]
-	dygps = tr[1] - bl[1]
-	new_coord[0] = x/pix_x*dxgps + bl[0]
-	new_coord[1] = y/pix_y*dygps + bl[1]
-	return new_coord
-
 #Takes two coordinates at two times to figure out the speed of the object in kilometers per hour
 def getSpeedKPH(coord1, coord2, t1, t2):
 	dist = gpsToMeters(coord1[0], coord1[1], coord2[0], coord2[1])
@@ -139,11 +146,18 @@ def getSpeedKPH(coord1, coord2, t1, t2):
 	return kph
 
 #Takes two coordinates at two times to figure out the speed of the object in miles per hour	
-def getSpeedMPH(coord1, coord2, t1, t2):
+def getSpeedMPH(coord1, coord2, time):
 	dist = gpsToMeters(coord1[0], coord1[1], coord2[0], coord2[1])
-	metpersec = dist/(t2 - t1)
+	metpersec = dist/time
 	mph = metpersec/2.23694
 	return mph
+	
+def getCoordClick(event, x, y, flags, param):
+	drone = param
+	if event == cv2.EVENT_LBUTTONDOWN:
+		xy_coords = pixelsToXY(drone, x, y, num_x_pixels=720, num_y_pixels=404)
+		gps_coords = XYToGPS(xy_coords[0], xy_coords[1], drone)
+		print(str(x)+ ", "+ str(y) + " = " +str(xy_coords[0])+", "+str(xy_coords[1])+"="+ str(gps_coords[0])+ "," + str(gps_coords[1]))
 	
 	
 #Converts string to float and stores in val.value
@@ -171,16 +185,24 @@ class TrackedObj:
 		self.foreground_overlaps = []
 		self.frames_without_blob_overlap = 0;
 		self.past_centers = deque()
+		self.gps = [0,0]
+		self.in_queue = False
+		self.end_of_queue = False
+		self.time_in_queue = 0
 		
 		
 	def updateSpatialHistory(self, drone):
 		self.age += 1;
+		if self.in_queue:
+			self.time_in_queue+=1
+		else:
+			self.time_in_queue = 0
 		
 		cntr_x = self.location[0] + self.location[2]/2
 		cntr_y = self.location[1] + self.location[3]/2
 		phys_cntr = pixelsToXY(drone, cntr_x, cntr_y)
 		self.past_centers.append(phys_cntr);
-		
+		self.gps = XYToGPS(phys_cntr[0], phys_cntr[1], drone)
 		#We use 5 points ago vs this point to get avg speed/direction.
 		if self.age < 5:
 			return
@@ -188,14 +210,16 @@ class TrackedObj:
 		last_cntr = self.past_centers.popleft()
 		
 		line = (phys_cntr[0] - last_cntr[0], phys_cntr[1] - last_cntr[1])
-		
+		past_gps = XYToGPS(last_cntr[0], last_cntr[1], drone)
 		#prediction = self.kalman.predict()
 		#pred_x = prediction[0]
 		#pred_y = prediction[1]
-		time = 5 * 1/input_fps #seconds since last point
-		cur_speed = math.sqrt( line[0]**2 + line[1]**2 ) / time
-		self.speed = cur_speed * 0.0223694 #cm/s to miles/hour
+		time = 5*1/input_fps #seconds since last point
 		
+		#cur_speed = math.sqrt( line[0]**2 + line[1]**2 ) / time
+		#self.speed = cur_speed * 0.0223694 #cm/s to miles/hour
+		if self.age%10 == 0:
+			self.speed = 5*getSpeedMPH(self.gps, past_gps, time)
 		
 		#atan2 gets angle in radians from -pi to pi
 		cur_direction = math.atan2(line[1], line[0]);
@@ -210,7 +234,6 @@ class TrackedObj:
 class Drone:
 	def __init__(self, drone_speed, drone_height, drone_direction, drone_cam_direction, drone_lat, drone_long):
 		self.speed = drone_speed
-		#From 0 to 360 with N=90, E = 0, S = 270, and W = 180
 		self.direction = drone_direction
 		self.height = drone_height
 		self.lat = drone_lat
@@ -232,7 +255,8 @@ def tracking_setup(blur_size, min_blob_size, detection_buffer):
 	
 	#Setting blob detection parameters
 	params = cv2.SimpleBlobDetector_Params()
-	params.filterByColor = False
+	params.filterByColor = True
+	params.blobColor = 255
 	params.filterByArea = True
 	params.minArea = min_blob_size.value
 	params.maxArea = 500000000
@@ -423,7 +447,6 @@ def do_track(cap_src, name, blur_size, min_blob_size, detection_buffer, change_m
 		
 		# convert incoming image to HSV
 		img_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV);
-		
 		for obj in tracked_objs:
 			# First, lets take feedback from previous location, blob detection, and kalman filtering to 
 			# guess the next location
@@ -505,7 +528,8 @@ def do_track(cap_src, name, blur_size, min_blob_size, detection_buffer, change_m
 		#	Object travelling too slow (Should we do this?)
 		#	Object not travelling in the same direction as main traffic body.
 		
-		
+		has_queue = False
+		queue = []
 		# Currently very simplistic, doesn't do all of the above.
 		for i in range(len(tracked_objs) - 1, -1, -1):
 			# Delete nondetections first
@@ -549,10 +573,6 @@ def do_track(cap_src, name, blur_size, min_blob_size, detection_buffer, change_m
 			#Update movement info
 			obj.updateSpatialHistory(drone_state)
 			
-			#Tests on movement require that the object have been alive for a bit to be reasonable.
-			if obj.age < 8:
-				continue
-				
 			# Delete non-moving
 			# Currently considers 2 pixels per frame to be moving.
 			# Should be updated to account for distance from drone and fps
@@ -560,14 +580,41 @@ def do_track(cap_src, name, blur_size, min_blob_size, detection_buffer, change_m
 				if print_kill_cause: print("Killed for speed")
 				del tracked_objs[i]
 				continue;
-			
-			#Draw surviving objects in green.
-			frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0),2);
-			frame = cv2.putText(frame, '%.1f MPH' % obj.speed, (x, y-3), annotation_font, 0.4, (0, 255, 0), 1);
+			#Find end of queue
+			if obj.speed < 25 and ((obj.direction < math.pi and obj.direction > 7*math.pi/8) or (obj.direction > -math.pi and obj.direction < -7*math.pi/8)):
+				if len(queue) == 0:
+					has_queue = True
+					obj.end_of_queue = True
+				else:
+					for car in queue:
+						if car.end_of_queue and car.location[0] < obj.location[0]:
+							car.end_of_queue = False
+							obj.end_of_queue = True	
+				queue.append(obj)
+				obj.in_queue = True
+			elif obj.in_queue:
+				obj.in_queue = False
+				obj.end_of_queue = False
+
+		for obj in tracked_objs:
+			#Tests on movement require that the object have been alive for a bit to be reasonable.
+			if obj.age < 8:
+				is_duplicate = False;
+				
+			if obj.end_of_queue and obj.time_in_queue>5:
+				frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (0,0,255),2)
+				frame = cv2.putText(frame, '%.1f MPH' % obj.speed, (x, y-3), annotation_font, 0.4, (0, 0, 255), 1)
+				frame = cv2.putText(frame, 'lat: %.6f' % obj.gps[0], (x, y-23), annotation_font, 0.4, (0, 0, 255), 1)
+				frame = cv2.putText(frame, 'long: %.6f' % obj.gps[1], (x, y-13), annotation_font, 0.4, (0, 0, 255), 1)
+			else:
+				#Draw surviving objects in green.
+				frame = cv2.rectangle(frame, (x,y), (x+w,y+h), (0,255,0),2);
+				frame = cv2.putText(frame, '%.1f MPH' % obj.speed, (x, y-3), annotation_font, 0.4, (0, 255, 0), 1);
 
 		# display image
-		if show_vid: cv2.imshow(windowName,frame);
-		
+		if show_vid: 
+			cv2.imshow(windowName,frame);
+			cv2.setMouseCallback(windowName, getCoordClick, drone_state)
 		#Write image to shared memory:
 		output_frame_np[...] = frame[...]
 		
@@ -798,7 +845,7 @@ if __name__ == '__main__':
 
 	print("Tracked Objects: BLUE");
 	print("Likely cars: GREEN\n");
-
+	
 	###########################################################################################
 	#Find Correct serial for drone communication (IE find correct USB port
 	###########################################################################################
@@ -807,11 +854,11 @@ if __name__ == '__main__':
 	#All of these are lockless, they are write only from one process and read only from the rest, 
 	#no locks needed.
 	drone_speed = Value('d', 0.0, lock=False)
-	drone_height = Value('d', 3048.0, lock=False) #100 ft in centimeters
-	drone_direction = Value('d', 90.0, lock=False) 
-	drone_cam_direction = Value('d', 20, lock=False)
-	drone_lat = Value('d', 36.12390612329048, lock=False)
-	drone_long = Value('d', -97.06877946853638, lock=False)
+	drone_height = Value('d', 33.1, lock=False) #100 ft in centimeters/ Altitude
+	drone_direction = Value('d', 4.4, lock=False) #Camera Yaw
+	drone_cam_direction = Value('d', 90.0  -36.9 , lock=False) #Camera Pitch
+	drone_lat = Value('d', 36.1156472, lock=False)
+	drone_long = Value('d', -97.10574444, lock=False)
 	
 	if not simulate_drone:
 		print("Searching for drone communication link...", end ="");
@@ -856,7 +903,7 @@ if __name__ == '__main__':
 	#Configure mutable parameters
 	###########################################################################################
 	blur_size = Value('i', 11, lock=False);
-	min_blob_size = Value('i', 30, lock=False);
+	min_blob_size = Value('i', 60, lock=False);
 	detection_buffer = Value('i', 5, lock=False);
 	
 	#Tells the tracking to re-init any changed values.
