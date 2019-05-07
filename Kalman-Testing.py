@@ -1,18 +1,11 @@
-#####################################################################
-
-# Background Subtraction in conjunction with Kalman
-
-# To-Do: Car/shape recognition; automatic recognition as opposed to mouse input; blob detection
-
-#####################################################################
-
 import cv2
 import argparse
 import sys
 import math
 import numpy as np
 
-#####################################################################
+
+
 
 keep_processing = True;
 selection_in_progress = False; # support interactive region selection
@@ -25,7 +18,6 @@ parser.add_argument("-c", "--camera_to_use", type=int, help="specify camera to u
 parser.add_argument('video_file', metavar='video_file', type=str, nargs='?', help='specify optional video file')
 args = parser.parse_args()
 
-#####################################################################
 
 # select a region using the mouse
 
@@ -42,68 +34,55 @@ def on_mouse(event, x, y, flags, params):
 
     if event == cv2.EVENT_LBUTTONDOWN:
         boxes = [];
-        # print 'Start Mouse Position: '+str(x)+', '+str(y)
+        
         sbox = [x, y];
         selection_in_progress = True;
         boxes.append(sbox);
 
     elif event == cv2.EVENT_LBUTTONUP:
-        # print 'End Mouse Position: '+str(x)+', '+str(y)
+        
         ebox = [x, y];
         selection_in_progress = False;
         boxes.append(ebox);
-#####################################################################
 
-# return centre of a set of points representing a rectangle
+
+# returns set points of rectangle
 
 def center(points):
     x = np.float64((points[0][0] + points[1][0] + points[2][0] + points[3][0]) / 4.0)
     y = np.float64((points[0][1] + points[1][1] + points[2][1] + points[3][1]) / 4.0)
     return np.array([np.float32(x), np.float32(y)], np.float32)
 
-#####################################################################
-
-# this function is called as a call-back everytime the trackbar is moved
-# (here we just do nothing)
-
-def nothing(x):
-    pass
-
-#####################################################################
-# define video capture object
-
 cap = cv2.VideoCapture();
 
-# define display window name
+# defines window display names
 
-windowName = "Kalman Object Tracking"; # window name
-windowName2 = "Hue histogram back projection"; # window name
-windowNameSelection = "initial selected region";
+windowName = "Kalman"
+windowName2 = "Histogram"
+windowNameSelection = "Selected Region";
 
-# init kalman filter object
+# initalize kalman filter object
 
 kalman = cv2.KalmanFilter(4,2)
+
+
 kalman.measurementMatrix = np.array([[1,0,0,0],
-                                     [0,1,0,0]],np.float32)
+                                     [0,1,0,0]],np.float64)
 
 kalman.transitionMatrix = np.array([[1,0,1,0],
                                     [0,1,0,1],
                                     [0,0,1,0],
-                                    [0,0,0,1]],np.float32)
+                                    [0,0,0,1]],np.float64)
 
 kalman.processNoiseCov = np.array([[1,0,0,0],
                                    [0,1,0,0],
                                    [0,0,1,0],
-                                   [0,0,0,1]],np.float32) * 0.03
+                                   [0,0,0,1]],np.float64) * 0.03
 
 measurement = np.array((2,1), np.float32)
 prediction = np.zeros((2,1), np.float32)
 
-print("\nObservation in image: BLUE");
-print("Prediction from Kalman: GREEN\n");
-
-# if command line arguments are provided try to read video_name
-# otherwise default to capture from attached H/W camera
+# read in hardware ID if present for functioning camera
 
 if (((args.video_file) and (cap.open(str(args.video_file))))
     or (cap.open(args.camera_to_use))):
@@ -254,33 +233,16 @@ if (((args.video_file) and (cap.open(str(args.video_file))))
 
         stop_t = ((cv2.getTickCount() - start_t)/cv2.getTickFrequency()) * 1000;
 
-        # start the event loop - essential
-
-        # cv2.waitKey() is a keyboard binding function (argument is the time in milliseconds).
-        # It waits for specified milliseconds for any keyboard event.
-        # If you press any key in that time, the program continues.
-        # If 0 is passed, it waits indefinitely for a key stroke.
-        # (bitwise and with 0xFF to extract least significant byte of multi-byte response)
-        # here we use a wait time in ms. that takes account of processing time already used in the loop
-
-        # wait 40ms or less depending on processing time taken (i.e. 1000ms / 25 fps = 40 ms)
-
         key = cv2.waitKey(max(2, 40 - int(math.ceil(stop_t)))) & 0xFF;
-
-        # It can also be set to detect specific key strokes by recording which key is pressed
-
-        # e.g. if user presses "x" then exit  / press "f" for fullscreen display
 
         if (key == ord('x')):
             keep_processing = False;
         elif (key == ord('f')):
             fullscreen = not(fullscreen);
 
-    # close all windows
+# this function closes the window
 
     cv2.destroyAllWindows()
 
 else:
-    print("No video file specified or camera connected.");
-
-#####################################################################
+    print("No video file specified or hardware camera connected.");
